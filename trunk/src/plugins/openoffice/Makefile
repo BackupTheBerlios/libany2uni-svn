@@ -1,0 +1,21 @@
+CC= gcc
+CFLAGS= -O3 -Wall -ansi
+LDFLAGS= -O3 -Wall -ansi
+SRC= $(wildcard *.c)
+OBJ= $(SRC:.c=.o)
+LIBS= -lexpat -lz -licui18n
+
+all: p_oo.so
+
+p_oo.so: $(OBJ)
+	$(CC) -o $@ -shared $^ $(LDFLAGS) $(LIBS)
+
+p_oo.o: p_oo.h
+
+saxHandlers.o: saxHandlers.h
+
+%.o: %.c
+	$(CC) -o $@ -c $< $(CFLAGS)
+
+clean:
+	rm -rf *.o
