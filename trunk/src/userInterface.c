@@ -42,35 +42,40 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   switch(desc->format) {
 
   case ABIWORD :
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/abiword/p_abi.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/abiword/p_abi.so", RTLD_LAZY);
     
     break;
   
   case SCRIBUS : 
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/scribus/p_scribus.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/scribus/p_scribus.so", RTLD_LAZY);
 
     break;
   case XMLDOC :
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/XML/p_xml.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/XML/p_xml.so", RTLD_LAZY);
 
     break;
 
   case KWORD :
   case KSPREAD :
   case KPRESENTER:
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/koffice/p_koffice.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/koffice/p_koffice.so", RTLD_LAZY);
 
     break;
 
   case HTMLDOC :
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/HTML/p_html.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/HTML/p_html.so", RTLD_LAZY);
 
     break;
 
   case OOWRITE:
   case OOCALC:
   case OOIMPRESS:
-    handle = dlopen("/home/gwendal/any2uni/trunk/src/plugins/openoffice/p_oo.so", RTLD_LAZY);
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/openoffice/p_oo.so", RTLD_LAZY);
+
+    break;
+
+  case LATEX :
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/latex/p_latex.so", RTLD_LAZY);
 
     break;
 
@@ -182,53 +187,53 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  gettimeofday(&t1, NULL);
+/*  gettimeofday(&t1, NULL);
 
 
- for (i = 0; i<100; i++) {
+ for (i = 0; i<100; i++) {*/
 
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
   }
 
-/*  if (openDocument("../../format_abiword/test2.abw", &d2)) {
+  if (openDocument("../../format_abiword/test2.abw", &d2)) {
     printf("error openDocument2\n");
     exit(0);
   }
 
   fd = fopen("output", "w");
-*/
+
   e = read_content(&d, buf);
   while(e >= 0) {
-/*    fwrite(buf, e, 1, fd);
+    fwrite(buf, e, 1, fd);
     fwrite("  ", 2, 1, fd);
-    f = read_content(&d2, buf);*/
+    f = read_content(&d2, buf);
     e = read_content(&d, buf);
   }
 
   while (read_meta(&d, &meta) >=0) {
-/*    fwrite(meta.name, 2*meta.name_length, 1, fd);
-    fwrite(meta.value, 2*meta.value_length, 1, fd);*/
+    fwrite(meta.name, 2*meta.name_length, 1, fd);
+    fwrite(meta.value, 2*meta.value_length, 1, fd);
   }
 
 
-/*  fclose(fd);
+  fclose(fd);
 
   if (closeDocument(&d2)) {
     printf("error closeDocument2\n");
-  }*/
+  }
 
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
 
-  }
+/*  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
   printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/100);
-
+*/
   return 0;
 }
