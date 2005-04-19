@@ -57,6 +57,11 @@ enum latex_tag {
   oslash,
   Oslash,
   szlig,
+
+  /* LaTeX logos */
+  latex,
+  latexe,
+  tex,
 };
 
 #endif /* __LATEXTAGS_H__ */

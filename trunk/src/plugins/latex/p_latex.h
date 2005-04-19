@@ -3,6 +3,8 @@
 
 #include "../p_interface.h"
 
+#define BUFSIZE 2048
+
 /**
  * parses the next paragraph, handles metadata
  *
