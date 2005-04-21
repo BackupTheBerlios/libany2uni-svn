@@ -99,6 +99,11 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
 
+  case MSWORD :
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/word/p_word.so", RTLD_LAZY);
+
+    break;
+
   default :
     break;
   }
@@ -200,23 +205,23 @@ int main(int argc, char *argv[]) {
   FILE *fd;
   int e, f, i;
   struct timeval t1, t2;
-
-
+  
+  
   if (argc != 2) {
     printf("usage : ./test <doc_file>\n");
     exit(0);
   }
-
-/*  gettimeofday(&t1, NULL);
-
-
- for (i = 0; i<100; i++) {*/
-
+  
+  /*  gettimeofday(&t1, NULL);
+  
+  
+  for (i = 0; i<100; i++) {
+    */
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
   }
-
+  
   if (openDocument("../../format_abiword/test2.abw", &d2)) {
     printf("error openDocument2\n");
     exit(0);

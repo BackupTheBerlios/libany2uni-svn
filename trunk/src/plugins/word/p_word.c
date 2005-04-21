@@ -20,18 +20,17 @@
 */
 
 /*
- *  XML plugin
+ *  WORD plugin
  */
 
-#include "p_xml.h"
-#include "saxHandlers.h"
+#include "p_word.h"
 #include <unicode/ustring.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
 
-#define BUFSIZE 2048
+extern FILE *fdopen(int fildes, const char *mode);
 
 /* params : desc : the document descriptor
  * return : an error code
@@ -43,24 +42,40 @@
  */
 int initPlugin(struct doc_descriptor *desc) {
   UErrorCode err;
+  enum wType type;
+  long int length, textstart;
+  char buf[32];
 
   desc->fd = open(desc->filename, O_RDONLY);
-  desc->parser = XML_ParserCreate(NULL);
-  XML_SetUserData(desc->parser, &(desc->myState));
-  XML_SetElementHandler(desc->parser, startElement, endElement);
-  XML_SetCharacterDataHandler(desc->parser, characters);
-  (desc->myState).isTextContent = 0;
-  (desc->myState).suspended = 0;
-  (desc->myState).pparser = &(desc->parser);
+  desc->filedes = fdopen(desc->fd, "r");
 
-  /* initialize converter ( content is utf8 ) */
+  type = identify_version(desc->filedes);
+  switch(type) {
+  case unknown:
+    return -2;
+    break;
+
+  case oldword:
+    fseek(desc->filedes, 0, SEEK_SET);
+    fread(buf, 1, 32, desc->filedes);
+    memcpy(&length, buf + 28, 4);
+    memcpy(&textstart, buf + 24, 4);
+    desc->size = length - textstart;
+    (desc->myState).begin_byte = textstart;
+    fseek(desc->filedes, textstart, SEEK_SET);
+    break;
+
+  case ole:
+    desc->size = (off_t) seek_textstart(desc);
+    break;
+  }
+
+  /* initialize converter */
   err = U_ZERO_ERROR;
-  desc->conv = ucnv_open("utf8", &err);
+  desc->conv = ucnv_open("latin1", &err);
   if (U_FAILURE(err)) {
     return ERR_ICU;
   }
-  (desc->myState).cnv = desc->conv;
-  
 
   return OK;
 }
@@ -69,76 +84,12 @@ int initPlugin(struct doc_descriptor *desc) {
 /* params : desc : the document descriptor
  * return : an error code
  *
- * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
   ucnv_close(desc->conv);
-  XML_ParserFree(desc->parser);
-  close(desc->fd);
+  fclose(desc->filedes);
   return OK;
 }
-
-/* params : desc : the document descriptor
- *          out  : destination buffer for the paragraph
- * return : the length of the paragraph
- *          NO_MORE_DATA if there is no more paragraph
- *          or an error code
- *
- * parses the next paragraph
- */
-int parse(struct doc_descriptor* desc, char *out) {
-  char buf[BUFSIZE];
-  XML_ParsingStatus status;
-
-  /* initializing next paragraph container */
-  desc->myState.ch = out;
-  desc->myState.chlen = 0;
-
-  /* continuing to next paragraph*/
-  if ((desc->myState).suspended) {
-    (desc->myState).suspended = 0;
-    XML_ResumeParser(desc->parser);
-  }
-
-  /* filling a new buffer if the last one has been consumed */
-  if (!(desc->myState).suspended) {
-    desc->myState.buflen = read(desc->fd, buf, BUFSIZE);
-  }
-
-  while (!(desc->myState).suspended && desc->myState.buflen > 0) {
-    /* processing data until a whole paragraph has been parse
-       or end of file is reached */
-
-    /* parsing buffer */
-    if (XML_Parse(desc->parser, buf, desc->myState.buflen, 0) == XML_STATUS_ERROR) {
-      return -2;
-    }
-
-    /* filling new buffer if the last one has been consumed */
-    XML_GetParsingStatus(desc->parser, &status);
-    if (status.parsing != XML_SUSPENDED) {
-      desc->myState.buflen = read(desc->fd, buf, BUFSIZE);
-    }
-  }
-  
-  /* end of file has been reached */
-  if (desc->myState.buflen == 0) {
-
-    /* resuming parsing if needed (this shouldn't happen) */
-    if ((desc->myState).suspended) {
-      XML_ResumeParser(desc->parser);
-    }
-
-    /* signaling the end to the parser */
-    if (XML_Parse(desc->parser, buf, 0, 1) == XML_STATUS_ERROR) {
-      return -2;
-    }
-    return NO_MORE_DATA;
-  }
-
-  return desc->myState.chlen;
-}
-
 
 /* params : desc : the document descriptor
  *          buf  : destination buffer for UTF-16 data
@@ -154,12 +105,11 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   UErrorCode err;
 
   len = 0;
-
   outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
-  len = parse(desc, outputbuf);
-  
+  len = read_next(desc, outputbuf, INTERNAL_BUFSIZE);
+
   if (len > 0) {
     (desc->nb_par_read) += 1;
 
@@ -170,7 +120,6 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
     if (U_FAILURE(err)) {
       return ERR_ICU;
     }
-
   }
 
   if(outputbuf != NULL) {
@@ -188,8 +137,21 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
  * reads the next metadata available 
  */
 int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
+  if(desc->meta == NULL) {
+    return NO_MORE_META;
+  } else {
 
-  return NO_MORE_META;
+    /* copying content of desc->meta in meta */
+    meta->name = desc->meta->name;
+    meta->name_length = desc->meta->name_length;
+    meta->value = desc->meta->value;
+    meta->value_length = desc->meta->value_length;
+
+    /* switching to next metadata in descriptor
+     (the current one is lost) */
+    desc->meta = desc->meta->next;
+  }
+  return OK;
 }
 
 
@@ -197,9 +159,9 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
  * return : an indicator of the progression in the processing
  */
 int p_getProgression(struct doc_descriptor *desc) {
-  if(desc->size > 0) {
-    return (100 * XML_GetCurrentByteIndex(desc->parser)) / desc->size;
-  } else {
-    return 0;
+  if (desc->size > 0) {
+    return ( (100 * (ftell(desc->filedes) - (desc->myState).begin_byte))
+	     / desc->size);
   }
+  return 0;
 }

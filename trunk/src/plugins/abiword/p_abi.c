@@ -78,6 +78,7 @@ int initPlugin(struct doc_descriptor *desc) {
  * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
+  ucnv_close(desc->conv);
   XML_ParserFree(desc->parser);
   close(desc->fd);
   return OK;

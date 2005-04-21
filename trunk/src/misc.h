@@ -101,8 +101,9 @@ struct meta {
 struct doc_descriptor {
   char    *filename;           /* name of the file */
   int     fd;                  /* file descriptor */
+  FILE    *filedes;            /* file handle */
   unzFile unzFile;             /* file descriptor for zipped formats */
-  off_t   size;                /* fils size in bytes */
+  off_t   size;                /* file size or text length in bytes */
   int     format;              /* the file format
 				  (see section File Formats of this file) */
   void    *plugin_handle;      /* the plugin used by the document */

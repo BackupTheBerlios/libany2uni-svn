@@ -60,6 +60,7 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
+  ucnv_close(desc->conv);
   close(desc->fd);
   return OK;
 }

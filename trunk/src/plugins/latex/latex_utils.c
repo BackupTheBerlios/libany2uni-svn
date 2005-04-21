@@ -234,7 +234,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
   len = read(desc->fd, inbuf, BUFSIZE);
   struct meta *meta;
   UErrorCode err;
-  char t[20];
+
   l = 0;
   isNote = 0;
   fini = 0;
