@@ -35,7 +35,6 @@
 
 #define INTERNAL_BUFSIZE 5000
 
-
 /*
  * codes for file formats
  */
@@ -77,11 +76,25 @@ struct ParserState {
   int meta_suspended;      /* indicate if the parser is suspended because
 			      metadata have been parsed */
   int buflen;              /* size of the input buffer of the parser */
+  UConverter *cnv;         /* ICU converter from the doc_descriptor */
   struct meta *meta;       /* metadata structure created when new 
 			      metadata are being parsed */
-  UConverter *cnv;         /* the ICU converter from the doc_descriptor */
   long begin_byte;         /* byte where the text begins */
   int size_adjusted;       /* to know if size fitting is needed */
+};
+
+/**
+ * state structure for pdf reader
+ */
+struct pdfState {
+  int     version;       /* pdf version ( PDF-1.[version] ) */
+  size_t  xref;          /* cross-reference table offset */
+  int     catalogRef;    /* reference to catalog */
+  int     pagesRef;      /* reference to page tree */
+  int     currentPage;   /* reference to current page */
+  int     currentStream; /* current stream object in page */
+  int     currentOffset; /* offset in current stream */
+  int     filter;        /* stream encoding filter code */
 };
 
 /**
@@ -109,7 +122,8 @@ struct doc_descriptor {
   void    *plugin_handle;      /* the plugin used by the document */
   int     nb_par_read;         /* number of paragraphs already read */
   XML_Parser parser;           /* expat sax parser */
-  struct ParserState myState;  /* parser state */
+  void    *myState;            /* state structure
+				  (type depends on the plugin)*/
   struct meta *meta;           /* linked list of meatdata structures */
   UConverter *conv;            /* ICU converter */
 };

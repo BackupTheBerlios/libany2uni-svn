@@ -1,18 +1,17 @@
 CC= gcc
 CFLAGS= -O3 -Wall -ansi
 LDFLAGS= -O3 -Wall -ansi
+EXEC= p_pdf.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
-LIBS= -lexpat -licui18n
+LIBS= -licui18n -lz
 
-all: p_abi.so
+all: $(EXEC)
 
-p_abi.so: $(OBJ)
+$(EXEC): $(OBJ)
 	$(CC) -o $@ -shared $^ $(LDFLAGS) $(LIBS)
 
-p_abi.o: p_abi.h ../../misc.h
-
-saxHandlers.o: saxHandlers.h
+p_pdf.o: p_pdf.h
 
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)

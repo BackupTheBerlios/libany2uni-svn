@@ -20,19 +20,10 @@
 */
 
 /*
- *  HTML plugin
+ *  PDF plugin
  */
 
-#include "p_html.h"
-#include <unicode/ustring.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-
-#define BUFSIZE 2048
-
-
+#include "p_pdf.h"
 
 
 /* params : desc : the document descriptor
@@ -45,19 +36,28 @@
  */
 int initPlugin(struct doc_descriptor *desc) {
   UErrorCode err;
-  char encoding[20];
 
   desc->fd = open(desc->filename, O_RDONLY);
+  desc->myState = (struct pdfState *) malloc(sizeof(struct pdfState));
 
-  /* initialize converter ( content is utf8 ) */
-  err = U_ZERO_ERROR;
-  getEncoding(desc->fd, encoding);
-  desc->conv = ucnv_open(encoding, &err);
-  if (U_FAILURE(err)) {
-      fprintf(stderr, "Unable to open ICU converter\n");
-    return ERR_ICU;
+  ((struct pdfState *)(desc->myState))->version = version(desc->fd);
+  if(((struct pdfState *)(desc->myState))->version < 0) {
+    fprintf(stderr, "not PDF file\n");
+    return -2;
   }
 
+  if (initReader(desc) < 0) {
+    return -2;
+  };
+
+  /* initialize converter */
+  err = U_ZERO_ERROR;
+  desc->conv = ucnv_open("latin1", &err);
+  if (U_FAILURE(err)) {
+    fprintf(stderr, "unable to open ICU converter\n");
+    return ERR_ICU;
+  }
+  
   return OK;
 }
 
@@ -65,9 +65,9 @@ int initPlugin(struct doc_descriptor *desc) {
 /* params : desc : the document descriptor
  * return : an error code
  *
- * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
+  free(desc->myState);
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;
@@ -76,8 +76,6 @@ int closePlugin(struct doc_descriptor *desc) {
 /* params : desc : the document descriptor
  *          buf  : destination buffer for UTF-16 data
  * return : the length of the paragraph
- *          NO_MORE_DATA if there is no more paragraph
- *          ERR_STREAMFILE if an error occured
  *
  * reads the next paragraph and converts to UTF-16
  */
@@ -91,9 +89,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
-  while (len == 0) {
-    len = getText(desc, outputbuf);
-  }
+  len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
+  /*printf("%s\n\n", outputbuf);*/
   if (len > 0) {
     (desc->nb_par_read) += 1;
 
@@ -123,7 +120,21 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
  * reads the next metadata available 
  */
 int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
-  return NO_MORE_META;
+  if(desc->meta == NULL) {
+    return NO_MORE_META;
+  } else {
+
+    /* copying content of desc->meta in meta */
+    meta->name = desc->meta->name;
+    meta->name_length = desc->meta->name_length;
+    meta->value = desc->meta->value;
+    meta->value_length = desc->meta->value_length;
+
+    /* switching to next metadata in descriptor
+     (the current one is lost) */
+    desc->meta = desc->meta->next;
+  }
+  return OK;
 }
 
 
@@ -131,8 +142,8 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
  * return : an indicator of the progression in the processing
  */
 int p_getProgression(struct doc_descriptor *desc) {
-  int current_pos;
-
-  current_pos = lseek(desc->fd, 0, SEEK_CUR);
-  return ( 100 * current_pos ) / desc->size;
+  if (desc->size > 0) {
+    return 0;
+  }
+  return 0;
 }

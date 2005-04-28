@@ -103,7 +103,7 @@ void XMLCALL metaCharacters(void *user_data, const char *ch, int len) {
     valuelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
 				 uvalue, 2*strlen(ch2)+1, ch2, strlen(ch2), &err);
     if (U_FAILURE(err)) {
-      printf("error icu\n");
+      fprintf(stderr, "Unable to convert buffer\n");
     }
     
     /* filling metadata structure */
@@ -147,7 +147,7 @@ void XMLCALL metaStartElement(void *user_data, const char *name,  const char **a
     namelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
 				uname, 2*strlen(ch)+1, ch, strlen(ch), &err);
     if (U_FAILURE(err)) {
-      printf("error icu\n");
+      fprintf(stderr, "Unable to convert buffer\n");
     }
 
     /* filling metadata structure */

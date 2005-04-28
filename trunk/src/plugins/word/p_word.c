@@ -46,6 +46,8 @@ int initPlugin(struct doc_descriptor *desc) {
   long int length, textstart;
   char buf[32];
 
+  desc->myState = (struct ParserState *) malloc(sizeof(struct ParserState));
+  
   desc->fd = open(desc->filename, O_RDONLY);
   desc->filedes = fdopen(desc->fd, "r");
 
@@ -61,7 +63,7 @@ int initPlugin(struct doc_descriptor *desc) {
     memcpy(&length, buf + 28, 4);
     memcpy(&textstart, buf + 24, 4);
     desc->size = length - textstart;
-    (desc->myState).begin_byte = textstart;
+    ((struct ParserState *)(desc->myState))->begin_byte = textstart;
     fseek(desc->filedes, textstart, SEEK_SET);
     break;
 
@@ -74,6 +76,7 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("latin1", &err);
   if (U_FAILURE(err)) {
+    fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
 
@@ -86,6 +89,7 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
+  free(desc->myState);
   ucnv_close(desc->conv);
   fclose(desc->filedes);
   return OK;
@@ -118,6 +122,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
     len = 2 * ucnv_toUChars(desc->conv, buf, 2*INTERNAL_BUFSIZE,
 			    outputbuf, strlen(outputbuf), &err);
     if (U_FAILURE(err)) {
+      fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }
   }
@@ -160,7 +165,8 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
  */
 int p_getProgression(struct doc_descriptor *desc) {
   if (desc->size > 0) {
-    return ( (100 * (ftell(desc->filedes) - (desc->myState).begin_byte))
+    return ( (100 * (ftell(desc->filedes) -
+		     ((struct ParserState *)(desc->myState))->begin_byte))
 	     / desc->size);
   }
   return 0;

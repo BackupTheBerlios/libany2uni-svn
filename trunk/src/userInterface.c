@@ -2,7 +2,7 @@
   This file is part of the libany2uni project, an universal
   text extractor in unicode utf-16
   Copyright (C) 2005  Gwendal Dufresne
-
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public
   License as published by the Free Software Foundation; either
@@ -40,7 +40,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   void *handle = NULL;
   int (*initPlugin)(struct doc_descriptor *);
   struct stat st;
-
+  
   /* filling some desc fields */
   desc->filename = filename;
   desc->nb_par_read = 0;
@@ -63,15 +63,27 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
   case ABIWORD :
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/abiword/p_abi.so", RTLD_LAZY);
-    
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_abi.so\n");
+      return ERR_DLOPEN;
+    }
+
     break;
   
   case SCRIBUS : 
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/scribus/p_scribus.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_scribus.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
   case XMLDOC :
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/XML/p_xml.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_xml.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
@@ -79,11 +91,19 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case KSPREAD :
   case KPRESENTER:
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/koffice/p_koffice.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_koffice.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
   case HTMLDOC :
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/HTML/p_html.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_html.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
@@ -91,31 +111,52 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case OOCALC:
   case OOIMPRESS:
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/openoffice/p_oo.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_oo.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
   case LATEX :
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/latex/p_latex.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_latex.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
   case MSWORD :
     handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/word/p_word.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_word.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
+  case PDFDOC :
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_pdf.so\n");
+      return ERR_DLOPEN;
+    }
 
     break;
 
   default :
     break;
   }
-  if(handle == NULL) {
-    return ERR_DLOPEN;
-  }
+
   /* initiaization */
   *(void **)(&initPlugin) = dlsym(handle, "initPlugin");
   if (*(void **)(&initPlugin) == NULL ) {
     return ERR_DLSYM;
   }
-  (*initPlugin)(desc);
+  if ((*initPlugin)(desc) < 0){
+    return -2;
+  }
   
   desc->plugin_handle = handle;
 
@@ -140,8 +181,6 @@ int closeDocument(struct doc_descriptor *desc) {
   if (dlclose(desc->plugin_handle)) {
     return ERR_DLCLOSE;
   }
-
-  /* free any useless things */
 
   return OK;
 }
@@ -212,11 +251,11 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   
-  /*  gettimeofday(&t1, NULL);
+/*    gettimeofday(&t1, NULL);
   
   
-  for (i = 0; i<100; i++) {
-    */
+  for (i = 0; i<20; i++) {
+  */
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
@@ -252,13 +291,13 @@ int main(int argc, char *argv[]) {
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-
-/*  }
+/*
+  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
-  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/100);
+  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);
 */
   return 0;
 }

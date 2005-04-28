@@ -55,6 +55,7 @@ long int seek_textstart(struct doc_descriptor *desc) {
   char buf[1024];
   long int property_pos, startblock, textstart;
   long int length;
+  short int flags, charset;
   int i, j, fini, prev;
   char name[13];
 
@@ -98,14 +99,23 @@ long int seek_textstart(struct doc_descriptor *desc) {
     /* position at begining of stream */
     fseek(fd, (startblock + 1) * 512, SEEK_SET);
 
-    /* get text start offset and text length */
+    /* get text start offset, text length, charset and flags*/
     fread(buf, 1, 32, fd);
     memcpy(&textstart, buf + 24, 4);
     memcpy(&length, buf + 28, 4);
     length -= textstart;
+    memcpy(&charset, buf + 20, 2);
+    if (charset) {
+      fprintf(stderr, "not standard charset, output might be incorrect, charset code : %d\n", charset);
+    }
+    memcpy(&flags, buf + 10, 2);
+    if (flags & 0x100) {
+      fprintf(stderr, "File encrypted, unable to read\n");
+      return -2;
+    }
 
     /* position on text start */
-    (desc->myState).begin_byte = (startblock + 1) * 512 + textstart;
+    ((struct ParserState *)(desc->myState))->begin_byte = (startblock + 1) * 512 + textstart;
     fseek(fd, textstart - 32, SEEK_CUR);
 
   } else {
@@ -127,8 +137,8 @@ int read_next(struct doc_descriptor *desc, char *out, int size) {
 
   /* ensure that we do not read to much */
   len_available = (ftell(desc->filedes) >=
-		   (desc->myState.begin_byte) + desc->size - BUFSIZE ?
-		   (desc->myState.begin_byte) + desc->size - ftell(desc->filedes):
+		   ((struct ParserState *)(desc->myState))->begin_byte + desc->size - BUFSIZE ?
+		   ((struct ParserState *)(desc->myState))->begin_byte + desc->size - ftell(desc->filedes):
 		   BUFSIZE - 1);
 		   
   len = fread(buf, 1, len_available, desc->filedes);
@@ -176,8 +186,8 @@ int read_next(struct doc_descriptor *desc, char *out, int size) {
     /* fill a new buffer */
     if (!fini) {
       len_available = (ftell(desc->filedes) >=
-		       (desc->myState.begin_byte) + desc->size - BUFSIZE + 1?
-		       (desc->myState.begin_byte) + desc->size - ftell(desc->filedes):
+		       ((struct ParserState *)(desc->myState))->begin_byte + desc->size - BUFSIZE + 1?
+		       ((struct ParserState *)(desc->myState))->begin_byte + desc->size - ftell(desc->filedes):
 		       BUFSIZE - 1);
       len = fread(buf, 1, len_available, desc->filedes);
     }

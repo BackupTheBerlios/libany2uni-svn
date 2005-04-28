@@ -1,6 +1,6 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
-CFLAGS= -O3 -Wall -ansi
+CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
@@ -23,3 +23,6 @@ fileMgr.o: fileMgr.h misc.h
 
 clean:
 	rm -rf *.o
+
+distclean : clean
+	rm -rf test *.so

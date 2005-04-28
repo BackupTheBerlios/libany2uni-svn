@@ -46,20 +46,22 @@ int initPlugin(struct doc_descriptor *desc) {
 
   desc->fd = open(desc->filename, O_RDONLY);
   desc->parser = XML_ParserCreate(NULL);
-  XML_SetUserData(desc->parser, &(desc->myState));
+  desc->myState = (struct ParserState *) malloc(sizeof(struct ParserState));
+  XML_SetUserData(desc->parser, desc->myState);
   XML_SetElementHandler(desc->parser, startElement, endElement);
   XML_SetCharacterDataHandler(desc->parser, characters);
-  (desc->myState).isTextContent = 0;
-  (desc->myState).suspended = 0;
-  (desc->myState).pparser = &(desc->parser);
+  ((struct ParserState *)(desc->myState))->isTextContent = 0;
+  ((struct ParserState *)(desc->myState))->suspended = 0;
+  ((struct ParserState *)(desc->myState))->pparser = &(desc->parser);
 
   /* initialize converter ( content is utf8 ) */
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("utf8", &err);
   if (U_FAILURE(err)) {
+    fprintf(stderr, "Unable to open ICU converter\n");
     return ERR_ICU;
   }
-  (desc->myState).cnv = desc->conv;
+  ((struct ParserState *)(desc->myState))->cnv = desc->conv;
   
 
   return OK;
@@ -72,6 +74,7 @@ int initPlugin(struct doc_descriptor *desc) {
  * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
+  free(desc->myState);
   ucnv_close(desc->conv);
   XML_ParserFree(desc->parser);
   close(desc->fd);
@@ -91,52 +94,57 @@ int parse(struct doc_descriptor* desc, char *out) {
   XML_ParsingStatus status;
 
   /* initializing next paragraph container */
-  desc->myState.ch = out;
-  desc->myState.chlen = 0;
+  ((struct ParserState *)(desc->myState))->ch = out;
+  ((struct ParserState *)(desc->myState))->chlen = 0;
 
   /* continuing to next paragraph*/
-  if ((desc->myState).suspended) {
-    (desc->myState).suspended = 0;
+  if (((struct ParserState *)(desc->myState))->suspended) {
+    ((struct ParserState *)(desc->myState))->suspended = 0;
     XML_ResumeParser(desc->parser);
   }
 
   /* filling a new buffer if the last one has been consumed */
-  if (!(desc->myState).suspended) {
-    desc->myState.buflen = read(desc->fd, buf, BUFSIZE);
+  if (!((struct ParserState *)(desc->myState))->suspended) {
+    ((struct ParserState *)(desc->myState))->buflen = read(desc->fd, buf, BUFSIZE);
   }
 
-  while (!(desc->myState).suspended && desc->myState.buflen > 0) {
+  while (!((struct ParserState *)(desc->myState))->suspended
+	 && ((struct ParserState *)(desc->myState))->buflen > 0) {
     /* processing data until a whole paragraph has been parse
        or end of file is reached */
 
     /* parsing buffer */
-    if (XML_Parse(desc->parser, buf, desc->myState.buflen, 0) == XML_STATUS_ERROR) {
+    if (XML_Parse(desc->parser, buf, ((struct ParserState *)(desc->myState))->buflen, 0) == XML_STATUS_ERROR) {
+      fprintf(stderr, "Parsing error : %s\n",
+	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
       return -2;
     }
 
     /* filling new buffer if the last one has been consumed */
     XML_GetParsingStatus(desc->parser, &status);
     if (status.parsing != XML_SUSPENDED) {
-      desc->myState.buflen = read(desc->fd, buf, BUFSIZE);
+      ((struct ParserState *)(desc->myState))->buflen = read(desc->fd, buf, BUFSIZE);
     }
   }
   
   /* end of file has been reached */
-  if (desc->myState.buflen == 0) {
+  if (((struct ParserState *)(desc->myState))->buflen == 0) {
 
     /* resuming parsing if needed (this shouldn't happen) */
-    if ((desc->myState).suspended) {
+    if (((struct ParserState *)(desc->myState))->suspended) {
       XML_ResumeParser(desc->parser);
     }
 
     /* signaling the end to the parser */
     if (XML_Parse(desc->parser, buf, 0, 1) == XML_STATUS_ERROR) {
+      fprintf(stderr, "Parsing error : %s\n",
+	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
       return -2;
     }
     return NO_MORE_DATA;
   }
 
-  return desc->myState.chlen;
+  return ((struct ParserState *)(desc->myState))->chlen;
 }
 
 
@@ -168,6 +176,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
     len = 2 * ucnv_toUChars(desc->conv, buf, 2*INTERNAL_BUFSIZE,
 			    outputbuf, strlen(outputbuf), &err);
     if (U_FAILURE(err)) {
+      fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }
 
