@@ -90,7 +90,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 
   /* reading the next paragraph */
   len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
-  /*printf("%s\n\n", outputbuf);*/
+
   if (len > 0) {
     (desc->nb_par_read) += 1;
 

@@ -284,175 +284,179 @@ enum filter identifyFilter(char *buf) {
 int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   enum filter filter, tfilter;
-  int streamlength, beginByte;
+  int beginByte;
   int len, i, j, l, fini, v;
-  uLongf  destlen;
   char buf[BUFSIZE], tmp[20];
-  char stream[50*BUFSIZE], *buf2;
+  char *buf2, buf3[BUFSIZE];
 
-  streamlength = 0;
+  buf2 = NULL;
 
-  gotoRef(desc, state->xref, state->currentStream);
-  len = read(desc->fd, buf, BUFSIZE);
-  
-  /* search dictionary */
-  for (i = 0; strncmp(buf + i, "<<", 2); i++) {
-    if (i == len - 2) {
-      strncpy(buf, buf + i + 1, 1);
-      len = read(desc->fd, buf + 1, BUFSIZE - 1) + 1;
-      i = 0;
+  if(state->stream == NULL) {
+
+    gotoRef(desc, state->xref, state->currentStream);
+    len = read(desc->fd, buf, BUFSIZE);
+    
+    /* search dictionary */
+    for (i = 0; strncmp(buf + i, "<<", 2); i++) {
+      if (i == len - 2) {
+	strncpy(buf, buf + i + 1, 1);
+	len = read(desc->fd, buf + 1, BUFSIZE - 1) + 1;
+	i = 0;
+      }
     }
-  }
-  /* search length and Filter */
-  filter = none;
-  while (strncmp(buf + i, ">>", 2)) {
-
-    /* get Length */
-    if(!strncmp(buf + i, "/Length ", 8)) {
-      i += 8;
-      if (i > len - 8) {
+    /* search length and Filter */
+    filter = none;
+    while (strncmp(buf + i, ">>", 2)) {
+      
+      /* get Length */
+      if(!strncmp(buf + i, "/Length ", 8)) {
+	i += 8;
+	if (i > len - 8) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
+	  i = 0;
+	}
+	
+	for(j = 0; strncmp(buf + i + j, " ", 1) &&
+	      strncmp(buf + i + j, "\x0A", 1) &&
+	      strncmp(buf + i + j, "\x0D", 1); j++) {}
+	j++;
+	if(!strncmp(buf + i + j, "/", 1)) {
+	  /* Length is an integer */
+	  state->length = getNumber(buf + i);
+	  
+	  /* Length is a reference */
+	} else {
+	  v = lseek(desc->fd, 0, SEEK_CUR);
+	  gotoRef(desc, state->xref, getNumber(buf + i));
+	  l = read(desc->fd, buf3, BUFSIZE);
+	  j = getNextLine(buf3, l);
+	  while(!strncmp(buf3 + j, " ", 1)) {
+	    j++;
+	  }
+	  state->length = getNumber(buf3 + j);
+	  lseek(desc->fd, v, SEEK_SET);
+	}
+      }
+      
+      /* get Filters */
+      if(!strncmp(buf + i, "/Filter ", 8)) {
+	i += 8;
+	if (i > len - 8) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
+	  i = 0;
+	}
+	
+	/* array of filters */
+	if(!strncmp(buf + i, "[", 1)) {
+	  
+	  while(strncmp(buf + i, "]", 1)) {
+	    
+	    if (!strncmp(buf + i, "/", 1)) {
+	      j = 0;
+	      while(strncmp(buf + i, " ", 1)) {
+		strncpy(tmp + j, buf + i, 1);
+		j++;
+		i++;
+		if (i == len) {
+		len = read(desc->fd, buf, BUFSIZE);
+		}
+	      }
+	      strncpy(tmp + j, "\0", 1);
+	      tfilter = identifyFilter(tmp);
+	      switch (tfilter) {
+	      case flateDecode:
+		filter = tfilter;
+		break;
+	      case lzw:
+		fprintf(stderr, "LZW desompression not implemented\n");
+		return NO_MORE_DATA;
+		break;
+	      case crypt:
+		fprintf(stderr, "Encrypted document : operation aborted\n");
+		return NO_MORE_DATA;
+		break;
+	      default:
+		break;
+	      }
+	    }
+	    
+	    i++;
+	    if (i == len) {
+	      len = read(desc->fd, buf, BUFSIZE);
+	    }
+	  }
+	  
+	  /* unique filter */
+	} else {
+	  i++;
+	  j = 0;
+	  while(strncmp(buf + i, " ", 1) &&
+		strncmp(buf + i, "\x0A", 1) &&
+		strncmp(buf + i, "\x0D", 1)) {
+	    strncpy(tmp + j, buf + i, 1);
+	    i++;
+	    j++;
+	    if (i == len) {
+	      len = read(desc->fd, buf, BUFSIZE);
+	    }
+	  }
+	  strncpy(tmp + j, "\0", 1);
+	  filter = identifyFilter(tmp);
+	  switch (filter) {
+	  case lzw:
+	    fprintf(stderr, "LZW desompression not implemented\n");
+	    return NO_MORE_DATA;
+	    break;
+	  case crypt:
+	    fprintf(stderr, "Encrypted document : operation aborted\n");
+	    return NO_MORE_DATA;
+	    break;
+	  default:
+	    break;
+	  }
+	}
+      }
+      i++;
+      if (i == len - 8) {
 	strncpy(buf, buf + i, len - i);
 	len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
 	i = 0;
-      }
-
-      for(j = 0; strncmp(buf + i + j, " ", 1) &&
-	    strncmp(buf + i + j, "\x0A", 1) &&
-	    strncmp(buf + i + j, "\x0D", 1); j++) {}
-      j++;
-      if(!strncmp(buf + i + j, "/", 1)) {
-	/* Length is an integer */
-	streamlength = getNumber(buf + i);
-
-	/* Length is a reference */
-      } else {
-	v = lseek(desc->fd, 0, SEEK_CUR);
-	gotoRef(desc, state->xref, getNumber(buf + i));
-	l = read(desc->fd, stream, BUFSIZE);
-	j = getNextLine(stream, l);
-	while(!strncmp(stream + j, " ", 1)) {
-	  j++;
-	}
-	streamlength = getNumber(stream + j);
-	lseek(desc->fd, v, SEEK_SET);
       }
     }
     
-    /* get Filters */
-    if(!strncmp(buf + i, "/Filter ", 8)) {
-      i += 8;
-      if (i > len - 8) {
+    /* search stream begining */
+    while(strncmp(buf + i, "stream", 6)) {
+      i++;
+      if (i == len - 6) {
 	strncpy(buf, buf + i, len - i);
-	len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
 	i = 0;
       }
-      
-      /* array of filters */
-      if(!strncmp(buf + i, "[", 1)) {
-
-	while(strncmp(buf + i, "]", 1)) {
-
-	  if (!strncmp(buf + i, "/", 1)) {
-	    j = 0;
-	    while(strncmp(buf + i, " ", 1)) {
-	      strncpy(tmp + j, buf + i, 1);
-	      j++;
-	      i++;
-	      if (i == len) {
-		len = read(desc->fd, buf, BUFSIZE);
-	      }
-	    }
-	    strncpy(tmp + j, "\0", 1);
-	    tfilter = identifyFilter(tmp);
-	    switch (tfilter) {
-	    case flateDecode:
-	      filter = tfilter;
-	      break;
-	    case lzw:
-	      fprintf(stderr, "LZW desompression not implemented\n");
-	      return NO_MORE_DATA;
-	      break;
-	    case crypt:
-	      fprintf(stderr, "Encrypted document : operation aborted\n");
-	      return NO_MORE_DATA;
-	      break;
-	    default:
-	      break;
-	    }
-	  }
-
-	  i++;
-	  if (i == len) {
-	    len = read(desc->fd, buf, BUFSIZE);
-	  }
-	}
-
-	/* unique filter */
-      } else {
-	i++;
-	j = 0;
-	while(strncmp(buf + i, " ", 1) &&
-	      strncmp(buf + i, "\x0A", 1) &&
-	      strncmp(buf + i, "\x0D", 1)) {
-	  strncpy(tmp + j, buf + i, 1);
-	  i++;
-	  j++;
-	  if (i == len) {
-	    len = read(desc->fd, buf, BUFSIZE);
-	  }
-	}
-	strncpy(tmp + j, "\0", 1);
-	filter = identifyFilter(tmp);
-	switch (filter) {
-	case lzw:
-	  fprintf(stderr, "LZW desompression not implemented\n");
-	  return NO_MORE_DATA;
-	  break;
-	case crypt:
-	  fprintf(stderr, "Encrypted document : operation aborted\n");
-	  return NO_MORE_DATA;
-	  break;
-	default:
-	  break;
-	}
-      }
     }
-    i++;
-    if (i == len - 8) {
-      strncpy(buf, buf + i, len - i);
-      len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
-      i = 0;
+    i += getNextLine(buf + i, len - i);
+    beginByte = lseek(desc->fd, i - len, SEEK_CUR);
+    
+    /* uncompress or copy stream */
+    buf2 = (char *) malloc(state->length);
+    state->stream = (char *) malloc(20*state->length);
+    len = read(desc->fd, buf2, state->length);
+
+    for(j = 0; j < 20*state->length; j++) {
+      strncpy(state->stream + j, "\x00", 1);
     }
-  }
+    
+    if(filter == flateDecode) {
+      state->streamlength = 20*state->length;
+      uncompress(state->stream, &(state->streamlength), buf2, len);
 
-  /* search stream begining */
-  while(strncmp(buf + i, "stream", 6)) {
-    i++;
-    if (i == len - 6) {
-      strncpy(buf, buf + i, len - i);
-      len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
-      i = 0;
+    } else {
+      strncpy(state->stream, buf2, len);
+      state->streamlength = len;
     }
-  }
-  i += getNextLine(buf + i, len - i);
-  beginByte = lseek(desc->fd, i - len, SEEK_CUR);
-
-  /* uncompress or copy stream */
-  buf2 = (char *) malloc(streamlength);
-  len = read(desc->fd, buf2, streamlength);
-
-  for(j = 0; j < 50*BUFSIZE; j++) {
-    strncpy(stream + j, "\x00", 1);
-  }
-
-  if(filter == flateDecode) {
-    destlen = 50*BUFSIZE;
-    uncompress(stream, &destlen, buf2, len);
-    destlen = strlen(stream);
-
-  } else {
-    strncpy(stream, buf2, len);
-    destlen = len;
+    free(buf2);
+    buf2 = NULL;
   }
 
   /* go to current offset in stream */
@@ -464,24 +468,34 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   while (!fini) {
 
     /* get normal string */
-    if(l < size && !strncmp(stream + i, "(", 1)) {
-      i++;
-      state->currentOffset++;
-      while (strncmp(stream + i, ")", 1)) {
-	strncpy(out + l, stream + i, 1);
+    if(l < size - 1 && (state->inString || !strncmp(state->stream + i, "(", 1))) {
+      if(!strncmp(state->stream + i, "(", 1)) {
+	state->inString = 1;
+	i++;
+	state->currentOffset++;
+      }
+      while (l < size - 1 && strncmp(state->stream + i, ")", 1)) {
+	if(!strncmp(state->stream + i, "\\", 1)) {
+	  i++;
+	  state->currentOffset++;
+	}
+	strncpy(out + l, state->stream + i, 1);
 	l++;
 	i++;
 	state->currentOffset++;
       }
+      if(!strncmp(state->stream + i, ")", 1)) {
+	state->inString = 0;
+      }
     
       /* get hex string */
-    } else if (!strncmp(stream + i, "<", 1)) {
+    } else if (!strncmp(state->stream + i, "<", 1)) {
       i++;
       state->currentOffset++;
       j = 0;
       v = 0;
-      while(l < size && strncmp(stream + i, ">", 1)) {
-	strncpy(tmp, stream + i, 1);
+      while(l < size - 1 && strncmp(state->stream + i, ">", 1)) {
+	strncpy(tmp, state->stream + i, 1);
 	strncpy(tmp + 1, "\0", 1);
 	v *= 16;
 	if(!strncmp(tmp, "a", 1) || !strncmp(tmp, "A", 1)) {
@@ -507,11 +521,14 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
     }
 
     /* release output */
-    if (l >= size || !strncmp(stream + i, "ET", 2)) {
+    if (l >= size - 1 || !strncmp(state->stream + i, "ET", 2)) {
       i ++;
       state->currentOffset ++;
       fini = 1;
-      free(buf2);
+      if (l >= size-1) {
+	l = size-1;
+      }
+      strncpy(out + l, "\0", 1);
       return l;
     }
 
@@ -519,17 +536,21 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
     state->currentOffset++;
 
     /* end of stream */
-    if(i >= destlen) {
+    if(i >= state->streamlength) {
       fini = 1;
-      free(buf2);
+      free(state->stream);
+      state->stream = NULL;
+      state->streamlength = 0;
+      state->currentOffset = 0;
       if(getNextStream(desc) == -1) {
 	return NO_MORE_DATA;
       }
+      strncpy(out + l, "\0", 1);
       return l;
     }
   }
-
-  free(buf2);
+  
+  free(state->stream);
   return NO_MORE_DATA;
   
 }
@@ -600,6 +621,9 @@ int initReader(struct doc_descriptor *desc) {
   int len, i, found, t;
 
   state->currentStream = state->currentOffset = 0;
+  state->length = 0;
+  state->stream = NULL;
+  state->inString = 0;
 
   if(state->version < 5) {
     /* pdf version < 1.5 */

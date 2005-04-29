@@ -64,9 +64,9 @@ void XMLCALL startElement(void *user_data, const char *name, const char **attrs)
   } else if(((struct ParserState *)user_data)->chlen > 0 &&
 	    !strcmp(name, "text:tab-stop")) {
     sprintf(((struct ParserState *)user_data)->ch + 
-	     ((struct ParserState *)user_data)->chlen, " ");
+	    ((struct ParserState *)user_data)->chlen, " ");
     ((struct ParserState *)user_data)->chlen += 1;
-    
+
   }
 
 }

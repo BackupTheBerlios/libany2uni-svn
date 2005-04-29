@@ -62,7 +62,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   switch(desc->format) {
 
   case ABIWORD :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/abiword/p_abi.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_abi.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_abi.so\n");
       return ERR_DLOPEN;
@@ -71,7 +71,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
   
   case SCRIBUS : 
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/scribus/p_scribus.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_scribus.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_scribus.so\n");
       return ERR_DLOPEN;
@@ -79,7 +79,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
   case XMLDOC :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/XML/p_xml.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_xml.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_xml.so\n");
       return ERR_DLOPEN;
@@ -90,7 +90,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case KWORD :
   case KSPREAD :
   case KPRESENTER:
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/koffice/p_koffice.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_koffice.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_koffice.so\n");
       return ERR_DLOPEN;
@@ -99,7 +99,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case HTMLDOC :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/HTML/p_html.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_html.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_html.so\n");
       return ERR_DLOPEN;
@@ -110,7 +110,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case OOWRITE:
   case OOCALC:
   case OOIMPRESS:
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/openoffice/p_oo.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_oo.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_oo.so\n");
       return ERR_DLOPEN;
@@ -119,7 +119,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case LATEX :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/latex/p_latex.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_latex.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_latex.so\n");
       return ERR_DLOPEN;
@@ -128,7 +128,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MSWORD :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/word/p_word.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_word.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_word.so\n");
       return ERR_DLOPEN;
@@ -137,7 +137,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case PDFDOC :
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;
@@ -254,13 +254,13 @@ int main(int argc, char *argv[]) {
 /*    gettimeofday(&t1, NULL);
   
   
-  for (i = 0; i<20; i++) {
-  */
+  for (i = 0; i<20; i++) {*/
+
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
   }
-  
+
   if (openDocument("../../format_abiword/test2.abw", &d2)) {
     printf("error openDocument2\n");
     exit(0);
@@ -291,8 +291,8 @@ int main(int argc, char *argv[]) {
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-/*
-  }
+
+/*  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);

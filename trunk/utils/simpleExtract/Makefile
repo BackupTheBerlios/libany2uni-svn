@@ -1,14 +1,14 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
 CFLAGS= -O3 -Wall -ansi
-EXEC= simpleExtract
+EXEC= any2utf8
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
-LIBS= ../../src/libany2uni.so -licui18n
+LIBS= /usr/lib/libany2uni/libany2uni.so -licui18n
 
 all: $(EXEC)
 
-simpleExtract: $(OBJ)
+$(EXEC): $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 
 %.o: %.c
@@ -16,3 +16,6 @@ simpleExtract: $(OBJ)
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf $(EXEC)

@@ -41,8 +41,6 @@ int getMeta(struct doc_descriptor *desc) {
   char buf[BUFSIZE];
   struct meta *meta;
 
-  desc->myState = (struct ParserState *) malloc(sizeof(struct ParserState));
-
   /* opening file containing metadata */
   unzLocateFile(desc->unzFile, "documentinfo.xml", 2);
   unzOpenCurrentFile(desc->unzFile);
@@ -119,6 +117,9 @@ int initPlugin(struct doc_descriptor *desc) {
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
+
+  desc->myState = (struct ParserState *) malloc(sizeof(struct ParserState));
+
   ((struct ParserState *)(desc->myState))->cnv = desc->conv;
 
   desc->unzFile = unzOpen(desc->filename);
@@ -131,7 +132,7 @@ int initPlugin(struct doc_descriptor *desc) {
   unzGetCurrentFileInfo(desc->unzFile, &info, NULL, 0, NULL, 0, NULL, 0);
   desc->size = info.uncompressed_size;
   desc->parser = XML_ParserCreate(NULL);
-  XML_SetUserData(desc->parser, &(desc->myState));
+  XML_SetUserData(desc->parser, ((struct ParserState *)(desc->myState)));
   XML_SetElementHandler(desc->parser, startElement, endElement);
   XML_SetCharacterDataHandler(desc->parser, characters);
   ((struct ParserState *)(desc->myState))->isTextContent = 0;

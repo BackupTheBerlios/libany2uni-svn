@@ -95,6 +95,10 @@ struct pdfState {
   int     currentStream; /* current stream object in page */
   int     currentOffset; /* offset in current stream */
   int     filter;        /* stream encoding filter code */
+  char    *stream;       /* buffer to contain uncompressed stream */
+  uLongf  streamlength;  /* length of stream buffer */
+  int     length;        /* size of compressed stream */
+  int     inString;      /* 1 if cursor is inside a string object */
 };
 
 /**

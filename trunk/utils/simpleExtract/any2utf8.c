@@ -21,7 +21,7 @@
 
 /*
  * tool for text extraction in utf8
- * usage : ./simpleExtract <document>
+ * usage : ./any2utf8 <document>
  */
 
 #include "../../src/userInterface.h"
@@ -96,7 +96,8 @@ int main(int argc, char *argv[]) {
       
       /* printing result to standard output */
       printf("%s ", out);
-      
+
+      memcpy(ubuf, "\0", 1);
       free(out);    
     }
   } else if (mode == METADATA) {
@@ -130,7 +131,7 @@ int main(int argc, char *argv[]) {
       
       /* printing name to standard output */
       printf("%s", out);
-      
+
       free(out);    
 
       /* get the needed size for output string */
