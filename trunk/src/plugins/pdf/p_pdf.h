@@ -101,7 +101,7 @@ int getKeyword(char *input, char *output);
  * to obtain reference to next stream
  *
  * \param desc the document descriptor
- * \retrun the next stream reference, -1 if end of document
+ * \return the next stream reference, -1 if end of document
  */
 int getNextStream(struct doc_descriptor *desc);
 
@@ -110,7 +110,7 @@ int getNextStream(struct doc_descriptor *desc);
  * to obtain reference to next page
  *
  * \param desc the document descriptor
- * \retrun the next page reference, -1 if no more page
+ * \return the next page reference, -1 if no more page
  */
 int getNextPage(struct doc_descriptor *desc);
 
@@ -155,6 +155,26 @@ int getNumber(char *buf);
  * \return 0 for success, -1 if not found
  */
 int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char *value);
+
+
+/**
+ * to update encoding in ICU converter, according to the current font
+ *
+ * \param desc the document descriptor
+ * \param fontName name of the font as it appears in the stream
+ * \return an error code
+ */
+int setEncoding(struct doc_descriptor *desc, char *fontName);
+
+
+/**
+ * to get encoding for new fonts (in current page
+ * or current node in tree)
+ *
+ * \param desc the document descriptor
+ * \return an error code
+ */
+int getEncodings(struct doc_descriptor *desc);
 
 
 /**

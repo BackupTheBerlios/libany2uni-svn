@@ -4,7 +4,7 @@ CFLAGS= -O3 -Wall -ansi
 EXEC= any2utf8
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
-LIBS= /usr/lib/libany2uni/libany2uni.so -licui18n
+LIBS= -lany2uni -licui18n
 
 all: $(EXEC)
 

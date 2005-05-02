@@ -206,6 +206,8 @@ int getNextPage(struct doc_descriptor *desc) {
   if(strncmp(buf + i, "]", 1)) {
     state->currentPage = getNumber(buf + i);
     gotoRef(desc, state->xref, state->currentPage);
+    getEncodings(desc);
+
     len = read(desc->fd, buf, BUFSIZE);
     strncpy(tmp, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
 
@@ -246,6 +248,7 @@ int getNextPage(struct doc_descriptor *desc) {
       strncpy(tmp + t, "\0", 1);
       gotoRef(desc, state->xref, atoi(tmp));
       state->currentPage = atoi(tmp);
+      getEncodings(desc);
 
       len = read(desc->fd, buf, BUFSIZE);
       strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
@@ -285,9 +288,10 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   enum filter filter, tfilter;
   int beginByte;
-  int len, i, j, l, fini, v;
+  int len, i, j, k, l, fini, v;
   char buf[BUFSIZE], tmp[20];
   char *buf2, buf3[BUFSIZE];
+  char fontName[12];
 
   buf2 = NULL;
 
@@ -467,6 +471,32 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   l = 0;
   while (!fini) {
 
+    /* font changed */
+    if(!state->inString && !strncmp(state->stream + i, "/", 1)) {
+      i++;
+      for(k = 0; strncmp(state->stream + i, " ", 1)
+	     && strncmp(state->stream + i, "\x0A", 1)
+	     && strncmp(state->stream + i, "\x0D", 1); i++) {
+	strncpy(fontName + k, state->stream + i, 1);
+	k++;
+      }
+      strncpy(fontName + k, "\0", 1);
+      if(strncmp(state->currentFont, fontName, strlen(fontName))) {
+	if (!setEncoding(desc, fontName)) {
+	  strncpy(state->currentFont, fontName, strlen(fontName));
+	  strncpy(state->currentFont + strlen(fontName), "\0", 1);
+	}
+      }
+    }
+
+    /* end of array ( might be an end of line ) */
+    if(l < size - 1 && !state->inString && !strncmp(state->stream + i, "]", 1)) {
+      strncpy(out + l, " ", 1);
+      l++;
+      i++;
+      state->currentOffset++;
+    }
+
     /* get normal string */
     if(l < size - 1 && (state->inString || !strncmp(state->stream + i, "(", 1))) {
       if(!strncmp(state->stream + i, "(", 1)) {
@@ -624,6 +654,8 @@ int initReader(struct doc_descriptor *desc) {
   state->length = 0;
   state->stream = NULL;
   state->inString = 0;
+  state->encodings = NULL;
+  strncpy(state->currentFont, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
 
   if(state->version < 5) {
     /* pdf version < 1.5 */
@@ -698,6 +730,7 @@ int initReader(struct doc_descriptor *desc) {
 
     /* going to page tree */
     gotoRef(desc, state->xref, state->pagesRef);
+    getEncodings(desc);
     len = read(desc->fd, buf, BUFSIZE);
     if (getValue(desc, buf, len, "Type", tmp) < 0) {
 	fprintf(stderr, "Can't find Type\n");
@@ -737,6 +770,7 @@ int initReader(struct doc_descriptor *desc) {
       }
       strncpy(tmp + t, "\0", 1);
       gotoRef(desc, state->xref, atoi(tmp));
+      getEncodings(desc);
       state->currentPage = atoi(tmp);
 
       len = read(desc->fd, buf, BUFSIZE);
@@ -822,8 +856,14 @@ int gotoRef(struct doc_descriptor *desc, size_t xref, int ref){
     len = read(desc->fd, buf, BUFSIZE);
     i -= BUFSIZE;
   }
+  if(len - i < 11) {
+    strncpy(buf, buf + i, len - i);
+    len = read(desc->fd, buf + len - i, 10);
+    i = 0;
+  }
   strncpy(tmp, buf + i, 10);
   strncpy(tmp + 10, "\0", 1);
+
   /* setting file cursor */
   if (lseek(desc->fd, atoi(tmp), SEEK_SET) != atoi(tmp)) {
     fprintf(stderr, "Unable to reach offset %d\n", atoi(tmp));
@@ -860,6 +900,171 @@ int getNextLine(char *buf, int size) {
 
   return i;
 
+}
+
+
+int getEncodings(struct doc_descriptor *desc) {
+  struct pdfState *state = ((struct pdfState *)(desc->myState));
+  int len, len2, i, j, prevPosition;
+  char buf[BUFSIZE], buf2[BUFSIZE];
+  char name[10], value[20];
+  struct encodingTable *encoding = state->encodings;
+
+  prevPosition = lseek(desc->fd, 0, SEEK_CUR);
+
+  /* search fonts in current object */
+  len = read(desc->fd, buf, BUFSIZE);
+
+  /* search dictionary */
+  for (i = 0; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {}
+  i += 2;
+
+  for ( ; i < len - 9 && strncmp(buf + i, ">>", 2) && strncmp(buf + i, "/Resources", 10); i++) {}
+
+  /* if no ressources available */
+  if (strncmp(buf + i, "/Resources", 10)) {
+    lseek(desc->fd, prevPosition, SEEK_SET);
+    return 0;
+  }
+
+
+  i += 11;
+  /* enter ressources */
+  gotoRef(desc, state->xref, getNumber(buf + i));
+  len = read(desc->fd, buf, BUFSIZE);
+
+  /* search dictionary */
+  for (i = 0; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {}
+  i += 2;
+
+  for ( ; i < len - 4 && strncmp(buf + i, ">>", 2) && strncmp(buf + i, "/Font", 5); i++) {}
+
+  /* if no font available */
+  if(strncmp(buf + i, "/Font", 5)) {
+    lseek(desc->fd, prevPosition, SEEK_SET);
+    return 0;
+  }
+  i += 6;
+  
+  /* enter fonts */
+  if(strncmp(buf + i, "<<", 2)) {
+    gotoRef(desc, state->xref, getNumber(buf + i));
+    len = read(desc->fd, buf, BUFSIZE);
+    i = 0;
+  }
+
+  /* search dictionary */
+  for ( ; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {}
+  i += 2;
+  
+  for ( ; i < len - 1 && strncmp(buf + i, ">>", 2); i++) {
+
+    if(!strncmp(buf + i, "/", 1)) {
+      i++;
+      strncpy(name, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
+      getKeyword(buf + i, name);
+
+     /* is the font already registered */
+      if(encoding == NULL) {
+	state->encodings = (struct encodingTable *) malloc(sizeof(struct encodingTable));
+	encoding = state->encodings;
+	encoding->fontName = NULL;
+      } else {
+	for ( ; encoding->next != NULL && strncmp(encoding->fontName, name, strlen(name));
+	      encoding = encoding->next) {}
+	if (strncmp(encoding->fontName, name, strlen(name))) {
+
+	  encoding->next = (struct encodingTable *) malloc(sizeof(struct encodingTable));
+	  encoding = encoding->next;
+	  encoding->fontName = NULL;
+	}
+      }
+      if (encoding->fontName == NULL) {
+	encoding->next = NULL;
+	encoding->fontName = (char *) malloc(strlen(name) + 1);
+	strncpy(encoding->fontName, name, strlen(name));
+	strncpy((encoding->fontName) + strlen(name), "\0", 1);
+	
+	/* get font encoding */
+	i += strlen(name) + 1;
+	gotoRef(desc, state->xref, getNumber(buf + i));
+	len2 = read(desc->fd, buf2, BUFSIZE);
+
+	/* search dictionary */
+	for (j = 0; j < len2 - 1 && strncmp(buf2 + j, "<<", 2); j++) {}
+	j += 2;
+
+	for ( ; j < len2 - 8 && strncmp(buf2 + j, "/Encoding", 9)
+		&& strncmp(buf2 + j, ">>", 2); j++) {}
+
+	if (!strncmp(buf2 + j, "/Encoding", 9)) {
+	  j += 10;
+
+	  /* is it a name or a dictionary ? */
+	  if(!strncmp(buf2 + j, "/", 1)) {
+	    j++;
+	    strncpy(value, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 20);
+	    getKeyword(buf2 + j, value);
+
+	    if(!strncmp(value, "WinAnsiEncoding", 15)) {
+	      encoding->encoding = (char *) malloc(7);
+	      strncpy(encoding->encoding, "latin1\0", 7);
+
+	    } else if(!strncmp(value, "MacRomanEncoding", 16)) {
+	      encoding->encoding = (char *) malloc(7);
+	      strncpy(encoding->encoding, "latin1\0", 7);
+
+	    } else if(!strncmp(value, "MacExpertEncoding", 17)) {
+	      encoding->encoding = (char *) malloc(7);
+	      strncpy(encoding->encoding, "latin1\0", 7);
+
+	    } else if(!strncmp(value, "PDFDocEncoding", 14)) {
+	      encoding->encoding = (char *) malloc(7);
+	      strncpy(encoding->encoding, "latin1\0", 7);
+
+	    } else {
+	      encoding->encoding = (char *) malloc(7);
+	      strncpy(encoding->encoding, "latin1\0", 7);
+	    }
+
+	  } else {
+	    encoding->encoding = (char *) malloc(7);
+	    strncpy(encoding->encoding, "latin1\0", 7);	    
+	  }
+	}
+      }
+    }
+  }
+  lseek(desc->fd, prevPosition, SEEK_SET);
+  return OK;
+}
+
+
+int setEncoding(struct doc_descriptor *desc, char *fontName) {
+  struct pdfState *state = ((struct pdfState *)(desc->myState));
+  struct encodingTable *encoding = state->encodings;
+  UErrorCode err;
+
+  /* search font in table */
+  while(encoding != NULL && strcmp(encoding->fontName, fontName)) {
+    encoding = encoding->next;
+  }
+
+  /* update ICU converter encoding */
+  if(encoding != NULL) {
+/*    printf("%s -> %s\n", encoding->fontName, encoding->encoding);*/
+    ucnv_close(desc->conv);
+    err = U_ZERO_ERROR;
+    desc->conv = ucnv_open(encoding->encoding, &err);
+    if (U_FAILURE(err)) {
+      fprintf(stderr, "unable to open ICU converter\n");
+      return ERR_ICU;
+    }
+  } else {
+    return -1;
+  }
+
+  return OK;
 }
 
 

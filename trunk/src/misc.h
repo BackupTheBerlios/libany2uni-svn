@@ -87,19 +87,32 @@ struct ParserState {
  * state structure for pdf reader
  */
 struct pdfState {
-  int     version;       /* pdf version ( PDF-1.[version] ) */
-  size_t  xref;          /* cross-reference table offset */
-  int     catalogRef;    /* reference to catalog */
-  int     pagesRef;      /* reference to page tree */
-  int     currentPage;   /* reference to current page */
-  int     currentStream; /* current stream object in page */
-  int     currentOffset; /* offset in current stream */
-  int     filter;        /* stream encoding filter code */
-  char    *stream;       /* buffer to contain uncompressed stream */
-  uLongf  streamlength;  /* length of stream buffer */
-  int     length;        /* size of compressed stream */
-  int     inString;      /* 1 if cursor is inside a string object */
+  int     version;                 /* pdf version ( PDF-1.[version] ) */
+  size_t  xref;                    /* cross-reference table offset */
+  int     catalogRef;              /* reference to catalog */
+  int     pagesRef;                /* reference to page tree */
+  int     currentPage;             /* reference to current page */
+  int     currentStream;           /* current stream object in page */
+  int     currentOffset;           /* offset in current stream */
+  int     filter;                  /* stream encoding filter code */
+  char    *stream;                 /* buffer to contain uncompressed stream */
+  uLongf  streamlength;            /* length of stream buffer */
+  int     length;                  /* size of compressed stream */
+  int     inString;                /* 1 if cursor is inside a string object */
+  struct encodingTable *encodings; /* font encodings structure */
+  char    currentFont[10];         /* current font (for encoding) */
 };
+
+
+/**
+ * font encodings structure (linked list)
+ */
+struct encodingTable {
+  char *fontName;             /* name of font */
+  char *encoding;             /* font encoding */
+  struct encodingTable *next; /* next font */
+};
+
 
 /**
  * metadata structure (linked list)

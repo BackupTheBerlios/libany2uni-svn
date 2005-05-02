@@ -35,7 +35,7 @@ install:
 	for DIR in $(PLUGINSDIR); do \
 		cp $$DIR/*.so  /usr/lib/libany2uni/ \
 	; done
-	cp $(EXEC) /usr/lib/libany2uni/
+	cp $(EXEC) /usr/lib/
 	cp *.h /usr/include/libany2uni/
 
 clean:
