@@ -1,0 +1,43 @@
+HOW TO INSTALL THE ANY2UNI LIBRARY
+----------------------------------
+
+
+Requirements:
+-------------
+In order to compile the library, you need to have the followings installed:
+	-> ICU 2.1-2
+	-> libexpat 1.95.8-1
+	-> zlib
+
+If you want to generate the documentation, you will also need Doxygen.
+
+
+INSTALLATION:
+-------------
+First, unpack the sources:
+	gunzip [filename.tar.gz]
+	tar-xvf [filename.tar]
+Go into src directory:
+	cd libany2uni/src
+Enter root user mode.
+Then, compile and install:
+	make
+	make install
+If you want to remove junk:
+	make clean
+To remove all generated files:
+	make distclean
+	(this won't delete files installed in /usr/lib/)
+
+
+DOCUMENTATION:
+--------------
+To generate documentation, go to libany2uni directory and type:
+	doxygen doxyconf
+
+
+USING THE LIBRARY:
+------------------
+To use the library, all you need to do is to include
+<libany2uni/userInterface.h>. You have to compile using the
+-lany2uni option.
