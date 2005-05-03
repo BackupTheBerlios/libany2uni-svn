@@ -19,3 +19,6 @@ htmlReader.o: p_html.h
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf *.so

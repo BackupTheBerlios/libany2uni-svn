@@ -94,13 +94,34 @@ struct pdfState {
   int     currentPage;             /* reference to current page */
   int     currentStream;           /* current stream object in page */
   int     currentOffset;           /* offset in current stream */
-  int     filter;                  /* stream encoding filter code */
+  struct pdffilter *filter;        /* stream encoding filter codes */
   char    *stream;                 /* buffer to contain uncompressed stream */
   uLongf  streamlength;            /* length of stream buffer */
   int     length;                  /* size of compressed stream */
   int     inString;                /* 1 if cursor is inside a string object */
   struct encodingTable *encodings; /* font encodings structure */
   char    currentFont[10];         /* current font (for encoding) */
+};
+
+
+/**
+ * encoding filter type for PDF stream objects
+ */
+enum filter {
+  none,
+  flateDecode,
+  ascii85Decode,
+  lzw,
+  crypt,
+};
+
+
+/**
+ * linked list of stream filters
+ */
+struct pdffilter {
+  enum filter filtercode;
+  struct pdffilter *next;
 };
 
 

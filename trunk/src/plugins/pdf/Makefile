@@ -18,3 +18,6 @@ p_pdf.o: p_pdf.h
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf *.so

@@ -11,13 +11,13 @@ PLUGINSDIR = plugins/abiword plugins/HTML plugins/koffice plugins/latex \
 all: $(EXEC)
 
 $(EXEC): $(OBJ)
-	for DIR in $(PLUGINSDIR); do \
+	@for DIR in $(PLUGINSDIR); do \
 		cd $$DIR  && make ; cd ../.. \
 	; done
 	$(CC) -o $@ -shared $^ $(LDFLAGS) $(LIBS)
 
 test: $(OBJ)
-	for DIR in $(PLUGINSDIR); do \
+	@for DIR in $(PLUGINSDIR); do \
 		cd $$DIR  && make ; cd ../.. \
 	; done
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
@@ -39,13 +39,13 @@ install:
 	cp *.h /usr/include/libany2uni/
 
 clean:
-	for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && rm -rf *.o ; cd ../.. \
+	@for DIR in $(PLUGINSDIR); do \
+		cd $$DIR  && make clean ; cd ../.. \
 	; done
 	rm -rf *.o
 
 distclean : clean
-	for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && rm -rf *.so ; cd ../.. \
+	@for DIR in $(PLUGINSDIR); do \
+		cd $$DIR  && make distclean ; cd ../.. \
 	; done
 	rm -rf test *.so

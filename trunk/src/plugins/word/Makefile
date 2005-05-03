@@ -20,3 +20,6 @@ latex_utils.o: p_word.h
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf *.so

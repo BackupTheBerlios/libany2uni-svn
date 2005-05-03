@@ -20,3 +20,6 @@ latex_utils.o: latexTags.h
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf *.so

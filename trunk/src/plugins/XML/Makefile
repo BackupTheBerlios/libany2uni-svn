@@ -19,3 +19,6 @@ saxHandlers.o: saxHandlers.h
 
 clean:
 	rm -rf *.o
+
+distclean: clean
+	rm -rf *.so

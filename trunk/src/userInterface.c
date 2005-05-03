@@ -138,6 +138,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
   case PDFDOC :
     handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
+/*    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);*/
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;
@@ -254,8 +255,8 @@ int main(int argc, char *argv[]) {
 /*    gettimeofday(&t1, NULL);
   
   
-  for (i = 0; i<20; i++) {*/
-
+  for (i = 0; i<20; i++) {
+*/
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
@@ -291,13 +292,13 @@ int main(int argc, char *argv[]) {
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-
-/*  }
+/*
+  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
-  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);
-*/
+  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);*/
+
   return 0;
 }
