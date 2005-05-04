@@ -77,6 +77,8 @@ int format_detection(char *filename) {
     return OOCALC;
   } else if (!memcmp(extension, "sxi", 3)) {
     return OOIMPRESS;
+  } else if (!memcmp(extension, "sxd", 3)) {
+    return OODRAW;
   } else if (!memcmp(extension, "xml", 3)) {
     return XMLDOC;
   } else if (!memcmp(extension, "htm", 3)

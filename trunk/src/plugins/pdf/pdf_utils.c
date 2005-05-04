@@ -341,12 +341,14 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   enum filter  tfilter;
   struct pdffilter *filter;
   int beginByte;
+  int escaped;
   int len, i, j, k, l, fini, v;
   char buf[BUFSIZE], tmp[20];
   char *buf2, buf3[BUFSIZE];
   char fontName[12];
 
   buf2 = NULL;
+  escaped = 0;
 
   if(state->stream == NULL) {
     gotoRef(desc, state->xref, state->currentStream);
@@ -610,22 +612,52 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	  state->currentOffset++;
 	}
 
+	/* escape characters */
 	if(!strncmp(state->stream + i, "\\", 1)) {
 	  i++;
 	  state->currentOffset++;
+	  if(strncmp(state->stream + i, "(", 1) &&
+	     strncmp(state->stream + i, ")", 1) &&
+	     strncmp(state->stream + i, "\\", 1)) {
+
+	    if (!strncmp(state->stream + i, "n", 1) ||
+		!strncmp(state->stream + i, "r", 1) ||
+		!strncmp(state->stream + i, "t", 1) ||
+		!strncmp(state->stream + i, "b", 1) ||
+		!strncmp(state->stream + i, "f", 1)) {
+	      i++;
+	      state->currentOffset++;
+	    } else {
+
+	      /* octal code */
+	      v = 0;
+	      for(j = 0; j < 3; j++) {
+		strncpy(tmp, state->stream + i + j, 1);
+		strncpy(tmp + 1, "\0", 1);
+		v += atoi(tmp) * pow(8, 2 - j);
+	      }
+	      sprintf(out + l, "%c", v);
+	      l++;
+	      i += 2;
+	      state->currentOffset += 2;
+	      escaped = 1;
+	    }
+	  }
 	}
 	/* skip useless characters */
-	if(strncmp(state->stream + i, "\x0A", 1) &&
+	if(!escaped &&
+	   strncmp(state->stream + i, "\x0A", 1) &&
 	   strncmp(state->stream + i, "\x0D", 1) &&
 	   strncmp(state->stream + i, "\x0C", 1) &&
 	   strncmp(state->stream + i, "\x0B", 1)) {
 
 	  /* charset mapping */
-/*---------------------------------------------------------------------------*/
+	  /*-------------------------------------------------------------*/
 
 	  strncpy(out + l, state->stream + i, 1);
 	  l++;
 	}
+	escaped = 0;
 	i++;
 	state->currentOffset++;
       }
@@ -765,6 +797,8 @@ int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int 
     break;
 
   default:
+    memcpy(state->stream, inbuf, buflen);
+    state->streamlength = buflen;
     break;
 
   }

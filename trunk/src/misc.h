@@ -47,16 +47,17 @@
 #define OOWRITE    6
 #define OOCALC     7
 #define OOIMPRESS  8
-#define XMLDOC     9
-#define HTMLDOC   10
-#define LATEX     11
-#define RTFDOC    12
-#define MSWORD    13
-#define MSEXCEL   14
-#define MSPPT     15
-#define PDFDOC    16
-#define WPDOC     17
-#define QXPRESS   18
+#define OODRAW     9
+#define XMLDOC    10
+#define HTMLDOC   11
+#define LATEX     12
+#define RTFDOC    13
+#define MSWORD    14
+#define MSEXCEL   15
+#define MSPPT     16
+#define PDFDOC    17
+#define WPDOC     18
+#define QXPRESS   19
 
 /**
  * sax parser state structure for expat

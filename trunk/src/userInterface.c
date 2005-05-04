@@ -110,6 +110,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case OOWRITE:
   case OOCALC:
   case OOIMPRESS:
+  case OODRAW:
     handle = dlopen("/usr/lib/libany2uni/p_oo.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_oo.so\n");
@@ -137,8 +138,8 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case PDFDOC :
-    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
-/*    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);*/
+/*    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);*/
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;
