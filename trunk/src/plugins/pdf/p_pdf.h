@@ -181,12 +181,30 @@ int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int 
 
 
 /**
+ * to get XRef table
+ *
+ * \param desc the document descriptor
+ * \return an error code
+ */
+int getXRef(struct doc_descriptor *desc);
+
+
+/**
  * to get the pdf version of file (1.0 to 1.6)
  *
  * \param fd file descriptor
  * \return the version number
  */
 int version(int fd);
+
+
+/**
+ * to free a pdffilter struct
+ *
+ * \param filter the structure to free
+ * \return an error code
+ */
+int freeFilterStruct(struct pdffilter *filter);
 
 
 #endif /* __P_LATEX_H__ */

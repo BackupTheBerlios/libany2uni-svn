@@ -1,0 +1,49 @@
+HOW TO CREATE NEW PLUGINS
+-------------------------
+
+All the plugins must implements the functions declared in p_interface.h.
+These functions are called by the main program and they must return a correct value.
+
+Functions that must be implemented
+----------------------------------
+
+init_plugin(struct doc_descriptor *desc)
+-> called when the plugin is loaded. In this function, you can initialize all the structures you need, but there cannot be any static variable. If you need a variable accessible from any function, you must add it to the doc_descriptor structure in misc.h. It is also recommanded to search the document encoding if needed and to initialize the ICU converter in this finction.
+
+close_plugin(struct doc_descriptor *desc)
+-> called when the document is closed. You must free the ressources, don't forget the ICU converter.
+
+p_read_content(struct doc_descriptor *desc, UChar *buf)
+-> this function reads the next paragraph. You have to write the engine of your plugin and use it to obtain the text content. After, you only have to convert it to UTF-16 using the ICU converter and fill buf.
+
+p_read_meta(struct doc_descriptor *desc, struct meta *meta)
+-> this funtion fills the meta structure with the head of the linked list stored in the doc_descriptor. You can find an implementation in the other plugins.
+You must NOT find metadata in the document in this function. It will slow down your plugin and, because readers and parsers are often unable to move from a point of the document to another, it can make your plugin unstable.
+
+p_getProgression(struct doc_descriptor *desc)
+-> if you have a mean to get a relevant indicator of the progression in the document, you should use it here. Otherwise, you can return 0.
+
+
+How to integrate your plugin in the library
+-------------------------------------------
+First, you need to add the document format to the list in misc.h.
+Then, you modify the format_detection() function in internals.c by adding your format (it is based only on file extensions for now, but if I have time I will change it).
+At last, you must add your plugin to open_document() in userInterface.c.
+
+You should also add your plugin directory in the main makefile (PLUGINSDIR) for the installation to take your plugin into account.
+
+
+Recommandations
+---------------
+Please, make your plugin directory in the plugins directory, it is made for it.
+
+Don't forget to comment your code, others will certainly read it after you. For the documentation, please write doxygen comments.
+
+If you need new structures, defines or anything else that can be used by other plugins, you should put them in misc.h.
+
+The main() function in userInterface.c should allow you to test your plugin. You can modify it as you wish.
+
+To test your plugin without installing it after each compilation, replace the path /usr/lib/libany2uni/<plugin>.so in userInterface.c by <plugin directory>/<plugin>.so.
+To make the test program, type 'make test'.
+
+Don't be affraid to have a look at the other plugins to get hints.

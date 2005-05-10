@@ -24,7 +24,7 @@
 
 #include "misc.h"
 #include "internals.h"
-#include "unicode/utypes.h"
+#include <unicode/utypes.h>
 
 /**
  * Opens th document and fills the structure

@@ -67,6 +67,7 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
+  freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
   free(desc->myState);
   ucnv_close(desc->conv);
   close(desc->fd);

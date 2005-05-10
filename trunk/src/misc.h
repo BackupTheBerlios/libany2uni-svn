@@ -102,6 +102,20 @@ struct pdfState {
   int     inString;                /* 1 if cursor is inside a string object */
   struct encodingTable *encodings; /* font encodings structure */
   char    currentFont[10];         /* current font (for encoding) */
+  struct xref *XRef;               /* cross reference table */
+};
+
+
+/**
+ * cross reference structure (linked list)
+ */
+struct xref {
+  int object_number;           /* number of the object */
+  int isInObjectStream;        /* is this in an object stream ?*/
+  int offset_or_index;         /* offset of the object or index if
+				  it is in an object stream */
+  int object_stream;           /* the object stream in which it is */
+  struct xref *next;           /* next entry in table */
 };
 
 

@@ -575,7 +575,7 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
       state->currentOffset++;
       for(k = 0; strncmp(state->stream + i, " ", 1)
 	     && strncmp(state->stream + i, "\x0A", 1)
-	     && strncmp(state->stream + i, "\x0D", 1); i++) {
+	     && strncmp(state->stream + i, "\x0D", 1); i++ && state->currentOffset++) {
 	strncpy(fontName + k, state->stream + i, 1);
 	k++;
       }
@@ -894,244 +894,184 @@ int initReader(struct doc_descriptor *desc) {
   state->encodings = NULL;
   strncpy(state->currentFont, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
   state->filter = NULL;
+  state->XRef = NULL;
 
-  if(state->version < 5) {
-    /* pdf version < 1.5 */
+  /* looking for 'startxref' */
+  lseek(desc->fd, -40, SEEK_END);
+  len = read(desc->fd, buf, 40);
 
-    /* looking for 'startxref' */
-    lseek(desc->fd, -40, SEEK_END);
-    len = read(desc->fd, buf, 40);
-    if (len != 40) {
-      fprintf(stderr, "file corrupted\n");
-    }
-    for(i = 30; i > 0 && strncmp(buf + i, "startxref", 9); i--) {}
+  if (len != 40) {
+    fprintf(stderr, "file corrupted\n");
+  }
+  for(i = 30; i > 0 && strncmp(buf + i, "startxref", 9); i--) {}
+  
+  if(strncmp(buf + i, "startxref", 9)) {
+    fprintf(stderr, "Unable to find xref reference\n");
+    return -2;
+  }
+  
+  /* getting xref offset */
+  i += getNextLine(buf + i, len - i);
+  t = 0;
+  while (strncmp(buf + i + t, "\x0A", 1) && strncmp(buf + i + t, "\x0D", 1)) {
+    strncpy(tmp + t, buf + i + t, 1);
+    t++;
+  }
+  strncpy(tmp + t, "\0", 1);
+  state->xref = atoi(tmp);
+  
+  /* get xref */
+  lseek(desc->fd, state->xref, SEEK_SET);
+  getXRef(desc);
 
-    if(strncmp(buf + i, "startxref", 9)) {
-      fprintf(stderr, "Unable to find xref reference\n");
-      return -2;
-    }
-
-    /* getting xref offset */
-    i += getNextLine(buf + i, len - i);
-    t = 0;
-    while (strncmp(buf + i + t, "\x0A", 1) && strncmp(buf + i + t, "\x0D", 1)) {
-      strncpy(tmp + t, buf + i + t, 1);
-      t++;
-    }
-    strncpy(tmp + t, "\0", 1);
-    state->xref = atoi(tmp);
-
-    /* going to xref table */
-    lseek(desc->fd, state->xref, SEEK_SET);
-    len = read(desc->fd, buf, BUFSIZE);
-
-    /* looking for Root in trailer (just after xref) */
-    found = 0;
-    for( i = 0; i < len - 4 && !found; i++) {
-      if(!strncmp(buf + i, "/", 1)) {
-	i++;
-	getKeyword(buf + i, keyword);
-	if (!strncmp(keyword, "Root", 4)) {
-	  found = 1;
-	}
-      }
-      if(i == len - 5) {
-	strncpy(buf, buf + i + 1, 4);
-	len = read(desc->fd, buf + 4, BUFSIZE - 4) + 4;
-	i = 0;
-      }
-    }
-    if(!found) {
-      fprintf(stderr, "Unable to find Root entry in trailer\n");
-      return -2;
-    }
-
-    /* getting Root (catalog) reference */
-    i += 4;
-    while (!strncmp(buf + i, " ", 1)) {
+  /* going to xref table or stream */
+  lseek(desc->fd, state->xref, SEEK_SET);
+  len = read(desc->fd, buf, BUFSIZE);
+  
+  /* looking for Root in trailer or stream dictionary */
+  found = 0;
+  for( i = 0; i < len - 4 && !found; i++) {
+    if(!strncmp(buf + i, "/", 1)) {
       i++;
-    }
-    state->catalogRef = getNumber(buf + i);
-
-    /* going to catalog */
-    gotoRef(desc, state->xref, state->catalogRef);
-    len = read(desc->fd, buf, BUFSIZE);
-
-    /* looking for page tree reference */
-    found = 0;
-    for( i = 0; i < len - 5 && !found; i++) {
-      if(!strncmp(buf + i, "/", 1)) {
-	i++;
-	getKeyword(buf + i, keyword);
-	if (!strncmp(keyword, "Pages", 5)) {
-	  found = 1;
-	}
+      getKeyword(buf + i, keyword);
+      if (!strncmp(keyword, "Root", 4)) {
+	found = 1;
       }
     }
-    if (!found) {
-      fprintf(stderr, "Unable to find Pages in catalog\n");
-    }
-    i += 5;
-    state->pagesRef = getNumber(buf + i);
-
-    /* going to page tree */
-    gotoRef(desc, state->xref, state->pagesRef);
-    /*getEncodings(desc);*/
-    len = read(desc->fd, buf, BUFSIZE);
-    if (getValue(desc, buf, len, "Type", tmp) < 0) {
-	fprintf(stderr, "Can't find Type\n");
-	return -2;
-    }
-
-    /* finding first page */
-    while(!strncmp(tmp, "Pages", 5)) {
+    if(i == len - 5) {
+      strncpy(buf, buf + i + 1, 4);
+      len = read(desc->fd, buf + 4, BUFSIZE - 4) + 4;
       i = 0;
-
-      while(i <= len - 5 && strncmp(buf + i, "/Kids", 5)) {
-	if (i == len - 5) {
-	  strncpy(buf, buf + i, 5);
-	  len = read(desc->fd, buf + 5, BUFSIZE - 5) + 5;
-	  i = 0;
-	} else {
-	  i++;
-	}
-      }
-      i += 5;
-      while(!strncmp(buf + i, " ", 1)) {
-	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
-	  i = 0;
-	}
-      }
-      i++;
-      while (!strncmp(buf + i, " ", 1)) {
-	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
-	  i = 0;
-	}
-      }
-      t = 0;
-
-      while (strncmp(buf + i, " ", 1)) {
-	strncpy(tmp + t, buf + i, 1);
-	t++;
-	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
-	  i = 0;
-	}
-      }
-      strncpy(tmp + t, "\0", 1);
-      gotoRef(desc, state->xref, atoi(tmp));
-      /*getEncodings(desc);*/
-      state->currentPage = atoi(tmp);
-
-      len = read(desc->fd, buf, BUFSIZE);
-      strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
-      if (getValue(desc, buf, len, "Type", tmp) < 0) {
-	fprintf(stderr, "Can't find Type\n");
-	return -2;
-      }
     }
-
-  } else {
-    fprintf(stderr, "PDF version >= 1.5 : not yet implemented\n");
+  }
+  if(!found) {
+    fprintf(stderr, "Unable to find Root entry in trailer\n");
     return -2;
   }
 
+  /* getting Root (catalog) reference */
+  i += 4;
+  while (!strncmp(buf + i, " ", 1)) {
+      i++;
+  }
+  state->catalogRef = getNumber(buf + i);
+
+  /* going to catalog */
+  gotoRef(desc, state->xref, state->catalogRef);
+  len = read(desc->fd, buf, BUFSIZE);
+  
+  /* looking for page tree reference */
+  found = 0;
+  for( i = 0; i < len - 5 && !found; i++) {
+    if(!strncmp(buf + i, "/", 1)) {
+      i++;
+      getKeyword(buf + i, keyword);
+      if (!strncmp(keyword, "Pages", 5)) {
+	found = 1;
+      }
+    }
+  }
+  if (!found) {
+    fprintf(stderr, "Unable to find Pages in catalog\n");
+  }
+  i += 5;
+  state->pagesRef = getNumber(buf + i);
+  
+  /* going to page tree */
+  gotoRef(desc, state->xref, state->pagesRef);
+  /*getEncodings(desc);*/
+  len = read(desc->fd, buf, BUFSIZE);
+  if (getValue(desc, buf, len, "Type", tmp) < 0) {
+    fprintf(stderr, "Can't find Type\n");
+    return -2;
+    }
+  
+  /* finding first page */
+  while(!strncmp(tmp, "Pages", 5)) {
+    i = 0;
+    
+    while(i <= len - 5 && strncmp(buf + i, "/Kids", 5)) {
+      if (i == len - 5) {
+	strncpy(buf, buf + i, 5);
+	len = read(desc->fd, buf + 5, BUFSIZE - 5) + 5;
+	i = 0;
+      } else {
+	i++;
+      }
+    }
+    i += 5;
+    while(!strncmp(buf + i, " ", 1)) {
+      i++;
+      if (i == len) {
+	len = read(desc->fd, buf, BUFSIZE);
+	i = 0;
+      }
+    }
+    i++;
+    while (!strncmp(buf + i, " ", 1)) {
+      i++;
+      if (i == len) {
+	len = read(desc->fd, buf, BUFSIZE);
+	  i = 0;
+      }
+    }
+    t = 0;
+    
+    while (strncmp(buf + i, " ", 1)) {
+      strncpy(tmp + t, buf + i, 1);
+      t++;
+      i++;
+      if (i == len) {
+	len = read(desc->fd, buf, BUFSIZE);
+	i = 0;
+      }
+    }
+    strncpy(tmp + t, "\0", 1);
+    gotoRef(desc, state->xref, atoi(tmp));
+    /*getEncodings(desc);*/
+    state->currentPage = atoi(tmp);
+    
+    len = read(desc->fd, buf, BUFSIZE);
+    strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
+    if (getValue(desc, buf, len, "Type", tmp) < 0) {
+      fprintf(stderr, "Can't find Type\n");
+      return -2;
+    }
+  }
+  
   return OK;
 }
 
 
 int gotoRef(struct doc_descriptor *desc, size_t xref, int ref){
-  char buf[BUFSIZE], tmp[11], keyword[20];
-  int i, len, xinf, xsup, t, found, prev;
+  struct pdfState *state = (struct pdfState *)(desc->myState);
+  struct xref *XRef;
 
-  /* going to xref */
-  if (lseek(desc->fd, xref, SEEK_SET) != xref) {
-    fprintf(stderr, "Unable to find xref\n");
+  /* finding reference in table */
+  XRef = state->XRef;
+  if(XRef == NULL) {
+    fprintf(stderr, "XRef is empty\n");
     return -2;
   }
-  len = read(desc->fd, buf, BUFSIZE);
-  if (!len) {
-    fprintf(stderr, "Unable to read xref\n");
-    return -2;
+  while(XRef != NULL && XRef->object_number != ref) {
+    XRef = XRef->next;
   }
-  i = getNextLine(buf, len);
-  
-  /* get range of references in table */
-  t = 0;
-  while (strncmp(buf + i, " ", 1)) {
-    strncpy(tmp + t, buf + i, 1);
-    t++;
-    i++;
-  }
-  strncpy(tmp + t, "\0", 1);
-  xinf = atoi(tmp);
-  t = 0;
-  i++;
-  while (strncmp(buf + i + t, " ", 1) &&
-	 strncmp(buf + i + t, "\x0A", 1) &&
-	 strncmp(buf + i + t, "\x0D", 1)) {
-    strncpy(tmp + t, buf + i + t, 1);
-    t++;
-  }
-  strncpy(tmp + t, "\0", 1);
-  xsup = xinf + atoi(tmp) - 1;
-
-  if (ref > xsup || xinf > ref) {
-
-    /* looking for ref in another xref table */
-    found = 0;
-    for( ; i < len - 4 && !found; i++) {
-      if (!strncmp(buf + i, "/", 1)) {
-	i++;
-	getKeyword(buf + i, keyword);
-	if (!strncmp(keyword, "Prev", 4)) {
-	  found = 1;
-	}
-      }
-      if (!found && i == len - 5) {
-	strncpy(buf, buf + i + 1, 5);
-	len = read(desc->fd, buf + 5, len - 5) + 5;
-	i = 0;
-      }
-    }
-    i += 4;
-      while (!strncmp(buf + i, " ", 1)) {
-	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
-	  i = 0;
-	}
-      }
-    prev = getNumber(buf + i);
-    return (gotoRef(desc, prev, ref));
-  }
-
-  /* getting offset string */
-  i += getNextLine(buf + i, len - i);
-  i += 20 * (ref - xinf);
-  while (i >= len) {
-    len = read(desc->fd, buf, BUFSIZE);
-    i -= BUFSIZE;
-  }
-  if(len - i < 11) {
-    strncpy(buf, buf + i, len - i);
-    len = read(desc->fd, buf + len - i, 10);
-    i = 0;
-  }
-  strncpy(tmp, buf + i, 10);
-  strncpy(tmp + 10, "\0", 1);
-
-  /* setting file cursor */
-  if (lseek(desc->fd, atoi(tmp), SEEK_SET) != atoi(tmp)) {
-    fprintf(stderr, "Unable to reach offset %d\n", atoi(tmp));
+  if(XRef == NULL) {
+    fprintf(stderr, "cannot find reference to object %d\n", ref);
     return -2;
   }
 
+
+  if(!XRef->isInObjectStream) {
+
+    /* setting file cursor */
+    lseek(desc->fd, XRef->offset_or_index, SEEK_SET);
+
+  } else {
+    /* object is in object stream */
+
+
+  }
   return 0;
 }
 
@@ -1372,6 +1312,662 @@ int setEncoding(struct doc_descriptor *desc, char *fontName) {
 }
 
 
+int getXRef(struct doc_descriptor *desc) {
+  struct pdfState *state = (struct pdfState *)(desc->myState);
+  struct xref *XRef;
+  struct pdffilter *filter;
+  struct pdffilter *tmpfilter;
+  int len, i, t, len2, v;
+  int xinf, xsup, nbopened;
+  char buf[BUFSIZE], tmp[20];
+  char *decoded;
+  int size, length, prev;
+  long int dictionaryBegin, currentObject;
+  int field1Size, field2Size, field3Size;
+
+  len = read(desc->fd, buf, BUFSIZE);
+
+  /* case of a cross reference table */
+  if (!strncmp(buf, "xref", 4)) {
+    i = getNextLine(buf, len);
+    
+    /* get range of references in table */
+    t = 0;
+    while (strncmp(buf + i, " ", 1)) {
+      strncpy(tmp + t, buf + i, 1);
+      t++;
+      i++;
+    }
+    strncpy(tmp + t, "\0", 1);
+    xinf = atoi(tmp);
+    t = 0;
+    i++;
+    while (strncmp(buf + i + t, " ", 1) &&
+	   strncmp(buf + i + t, "\x0A", 1) &&
+	   strncmp(buf + i + t, "\x0D", 1)) {
+      strncpy(tmp + t, buf + i + t, 1);
+      t++;
+    }
+    strncpy(tmp + t, "\0", 1);
+    xsup = xinf + atoi(tmp) - 1;
+    i += getNextLine(buf + i, len - i);
+    if(i >= len - 20) {
+      strncpy(buf, buf + i, len - i);
+      len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+
+    if(state->XRef == NULL) {
+      XRef = (struct xref *) malloc(sizeof(struct xref));
+      state->XRef = XRef;
+      XRef->next = NULL;
+    } else {
+      XRef = state->XRef;
+      while(XRef->next != NULL) {
+	XRef = XRef->next;
+      }
+      XRef->next = (struct xref *) malloc(sizeof(struct xref));
+      XRef = XRef->next;
+      XRef->next = NULL;
+    }
+
+    /* copy each entry in state->XRef */
+    for(t = xinf; t <= xsup; t++) {
+      strncpy(tmp, buf + i, 10);
+      strncpy(tmp + 10, "\0", 1);
+      i += 20;
+      XRef->object_number = t;
+      XRef->offset_or_index = atoi(tmp);
+      XRef->isInObjectStream = 0;
+
+      if(t < xsup) {
+	XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	XRef = XRef->next;
+	XRef->next = NULL;
+      }
+
+      if( i >= len - 20) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+    }
+
+    /* procede previous xref if any */
+
+    /* search trailer dictionary */
+    while(strncmp(buf + i, "<<", 2)) {
+      i++;
+      if(i >= len - 4) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+    }
+    i += 2;
+
+    /* search prev entry */
+    nbopened = 0;
+    while(strncmp(buf + i, "/Prev", 5) &&
+	  (nbopened || strncmp(buf + i, ">>", 2))) {
+
+      if(!strncmp(buf + i, "<<", 2)) {
+	nbopened++;
+      } else if (!strncmp(buf + i, ">>", 2)) {
+	nbopened--;
+      }
+      i++;
+      if(i >= len - 5) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+    }
+
+    /* previous xref found */
+    if(!strncmp(buf + i, "/Prev", 5)) {
+      i += 5;
+      if(i >= len - 10) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+
+      /* get previous xref */
+      while(!strncmp(buf + i, " ", 1) ||
+	    !strncmp(buf + i, "\x0A", 1) ||
+	    !strncmp(buf + i, "\x0D", 1)) {
+	i++;
+	if(i >= len - 10) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
+	}
+      }
+      lseek(desc->fd, getNumber(buf + i), SEEK_SET);
+      getXRef(desc);      
+    }
+      
+
+  } else {
+    /* case of a cross reference stream */
+
+    size = 0;
+    field1Size = field2Size = field3Size = 0;
+    /*search dictionary */
+    for(i = 0; strncmp(buf + i, "<<", 2); i++) {}
+    i += 2;
+    dictionaryBegin = lseek(desc->fd, 0, SEEK_CUR);
+
+    /* analyze dictionary */
+    nbopened = 0;
+    prev = length = xsup =xinf = -1;
+    filter = NULL;
+    while( nbopened || strncmp(buf + i, ">>", 2)) {
+      if(!strncmp(buf + i, "<<", 2)) {
+	nbopened++;
+      } else if(!strncmp(buf + i, ">>", 2)) {
+	nbopened--;
+      }
+
+      /* get size */
+      if(!strncmp(buf + i, "/Size", 5)) {
+	i += 5;
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	size = atoi(tmp);
+      }
+
+      /* get length */
+      if(!strncmp(buf + i, "/Length", 7)) {
+	i += 7;
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	length = atoi(tmp);
+      }
+
+      /* get filter */
+      if(!strncmp(buf + i, "/Filter", 7)) {
+	i += 7;
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	if(!strncmp(buf + i, "[", 1)) {
+	  /* multiple filters */
+
+	  filter = (struct pdffilter *) malloc(sizeof(struct pdffilter));
+	  filter->next = NULL;
+	  filter->filtercode = -1;
+	  tmpfilter = filter;
+
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	  while(strncmp(buf + i, "]", 1)) {
+	    while(!strncmp(buf + i, " ", 1) ||
+		  !strncmp(buf + i, "\x0A", 1) ||
+		  !strncmp(buf + i, "\x0D", 1)) {
+	      i++;
+	      if(i == len) {
+		len = read(desc->fd, buf, BUFSIZE);
+		i = 0;
+	      }
+	    }
+	    if(strncmp(buf + i, "]", 1)) {
+	      if(tmpfilter->filtercode != -1) {
+		tmpfilter->next = (struct pdffilter *) malloc(sizeof(struct pdffilter));
+		tmpfilter = tmpfilter->next;
+		tmpfilter->next = NULL;
+	      }
+	      i++;
+	      t = 0;
+	      while(strncmp(buf + i, " ", 1) &&
+		    strncmp(buf + i, "/", 1) &&
+		    strncmp(buf + i, "\x0A", 1) &&
+		    strncmp(buf + i, "\x0D", 1)) {
+		strncpy(tmp + t, buf + i, 1);
+		t++;
+		i++;
+		if(i == len) {
+		  len = read(desc->fd, buf, BUFSIZE);
+		  i = 0;
+		}
+	      }
+	      strncpy(tmp + t, "\0", 1);
+	      tmpfilter->filtercode = identifyFilter(tmp);
+	    }
+	  }
+	} else {
+	  /* unique filter */
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+
+	  filter = (struct pdffilter *) malloc(sizeof(struct pdffilter));
+	  filter->next = NULL;
+
+	  t = 0;
+	  while(strncmp(buf + i, " ", 1) &&
+		strncmp(buf + i, "/", 1) &&
+		strncmp(buf + i, "\x0A", 1) &&
+		strncmp(buf + i, "\x0D", 1)) {
+	    strncpy(tmp + t, buf + i, 1);
+	    t++;
+	    i++;
+	    if(i == len) {
+	      len = read(desc->fd, buf, BUFSIZE);
+	      i = 0;
+	    }
+	  }
+	  strncpy(tmp + t, "\0", 1);
+	  filter->filtercode = identifyFilter(tmp);
+	}
+      }
+
+      /* get previous xref offset */
+      if(!strncmp(buf + i, "/Prev", 5)) {
+	i += 5;
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	prev = atoi(tmp);
+
+      }
+
+      /* get index */
+      if(!strncmp(buf + i, "/Index", 6)) {
+
+	/* get first entry number */
+	while(strncmp(buf + i, "[", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	i++;
+	if(i == len) {
+	  len = read(desc->fd, buf, BUFSIZE);
+	  i = 0;
+	}
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "]", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	xinf = atoi(tmp);
+
+	/* get last entry number */
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "]", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	xsup = xinf + atoi(tmp) - 1;
+      }
+
+      /* get xref fields sizes */
+      if(!strncmp(buf + i, "/W", 2)) {
+
+	/* get first field size */
+	while(strncmp(buf + i, "[", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	i++;
+	if(i == len) {
+	  len = read(desc->fd, buf, BUFSIZE);
+	  i = 0;
+	}
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	field1Size = atoi(tmp);
+
+	/* get second field size */
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	field2Size = atoi(tmp);
+
+	/* get third field size */
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	t = 0;
+	while(strncmp(buf + i, " ", 1) &&
+	      strncmp(buf + i, "/", 1) &&
+	      strncmp(buf + i, "]", 1) &&
+	      strncmp(buf + i, "\x0A", 1) &&
+	      strncmp(buf + i, "\x0D", 1)) {
+	  strncpy(tmp + t, buf + i, 1);
+	  t++;
+	  i++;
+	  if(i == len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	strncpy(tmp + t, "\0", 1);
+	field3Size = atoi(tmp);
+      }
+
+      i++;
+      if(i >= len - 7) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	i = 0;
+      }
+
+    }
+
+    /* set xref bounds (if no Index) */
+    if(xinf == -1) {
+      xinf = 0;
+      xsup = size - 1;
+    }
+
+    if(i >= len - 6) {
+      strncpy(buf, buf + i, len - i);
+      len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+
+    /* get stream */
+    while(strncmp(buf + i, "stream", 6)) {
+      i++;
+      if(i >= len - 6) {
+	strncpy(buf, buf + i, len - i);
+	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+    }
+    i+=6;
+    i += getNextLine(buf + i, len - i);
+    lseek(desc->fd, i - len, SEEK_CUR);
+    len = read(desc->fd, buf, length);
+
+    /* apply filters */
+    state->stream = (char *) malloc(50*length);
+    state->streamlength = 50*length;
+    if(filter->filtercode == flateDecode) {
+      uncompress(state->stream, &(state->streamlength), buf, length);
+    } else {
+      applyFilter(desc, filter->filtercode, buf, length);
+    }
+    tmpfilter = filter->next;
+    while(tmpfilter != NULL) {
+      if(tmpfilter->filtercode == flateDecode) {
+	uncompress(state->stream, &(state->streamlength), buf, length);
+      } else {
+	applyFilter(desc, tmpfilter->filtercode, buf, length);
+      }
+      tmpfilter = tmpfilter->next;
+    }
+
+    /* reverse prediction filter */
+    decoded = (char *) malloc(state->streamlength);
+    memcpy(decoded, state->stream + 1, 5);
+    len2 = 5;
+    for(i = 7; i < state->streamlength; i += 6) {
+      for(t = 0; t < 5; t++) {
+	decoded[len2] = decoded[len2 - 5] + state->stream[i + t];
+	len2++;
+      }
+    }
+    memcpy(state->stream, decoded, len2);
+    state->streamlength = len2;
+    free(decoded);
+
+    /* procede xref table */
+    if(state->XRef == NULL) {
+      XRef = (struct xref *) malloc(sizeof(struct xref));
+      state->XRef = XRef;
+      XRef->next = NULL;
+    } else {
+      XRef = state->XRef;
+      while(XRef->next != NULL) {
+	XRef = XRef->next;
+      }
+      XRef->next = (struct xref *) malloc(sizeof(struct xref));
+      XRef = XRef->next;
+      XRef->next = NULL;
+    }
+    i = 0;
+    currentObject = xinf;
+    while(currentObject <= xsup) {
+      memcpy(tmp, state->stream + i, field1Size);
+      memcpy(tmp + field1Size, "\0", 1);
+
+      if( tmp[0] == 0 ) {
+	/* skip free object entries */
+
+      } else if( tmp[0] == 1) {
+	/* standard xref table entry */
+	v = 0;
+	for(t = 0; t < field2Size; t++) {
+	  memcpy(((char *)&v) + t,
+		 state->stream + i + field1Size + field2Size - t - 1, 1);
+	}
+	XRef->offset_or_index = v;
+	XRef->object_number = currentObject;
+	XRef->isInObjectStream = 0;
+	if(currentObject < xsup) {
+	  XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	  XRef = XRef->next;
+	  XRef->next = NULL;
+	}
+
+
+      } else if( tmp[0] == 2) {
+	/* compressed object entry */
+	v = 0;
+	for(t = 0; t < field2Size; t++) {
+	  memcpy(((char *)&v) + t,
+		 state->stream + i + field1Size + field2Size - t - 1, 1);
+	}
+	XRef->object_stream = v;
+
+	v = 0;
+	for(t = 0; t < field3Size; t++) {
+	  memcpy(((char *)&v) + t,
+		 state->stream + i + field1Size + field2Size  + field3Size
+		 - t - 1, 1);
+	}
+	XRef->offset_or_index = v;
+	XRef->object_number = currentObject;
+	XRef->isInObjectStream = 1;
+	if(currentObject < xsup) {
+	  XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	  XRef = XRef->next;
+	  XRef->next = NULL;
+	}
+
+      } else {
+	/* unknown type (future pdf versions) */
+	fprintf(stderr, "Unknown entry type in xref stream : %d\n", tmp[0]);
+	return -2;
+      }
+
+      i += field1Size + field2Size + field3Size;
+      currentObject++;
+    }
+
+    free(state->stream);
+    state->stream = NULL;
+    freeFilterStruct(filter);
+
+    /* procede previous xref */
+    if(prev != -1) {
+      lseek(desc->fd, prev, SEEK_SET);
+      getXRef(desc);
+    }
+    
+  }
+
+  return 0;
+}
+
+
 int version(int fd) {
   char buf[8], tmp[2];
 
@@ -1393,4 +1989,15 @@ int version(int fd) {
   strncpy(tmp + 1, "\0", 1);
 
   return atoi(tmp);
+}
+
+int freeFilterStruct(struct pdffilter *filter) {
+  struct pdffilter *tmp;
+
+  while(filter != NULL) {
+    tmp = filter;
+    filter = filter->next;
+    free(tmp);
+  }
+  return 0;
 }

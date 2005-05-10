@@ -138,8 +138,8 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case PDFDOC :
-/*    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);*/
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
+/*    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);*/
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;
@@ -293,8 +293,8 @@ int main(int argc, char *argv[]) {
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-/*
-  }
+
+/*  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
