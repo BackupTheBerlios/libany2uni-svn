@@ -922,7 +922,9 @@ int initReader(struct doc_descriptor *desc) {
   
   /* get xref */
   lseek(desc->fd, state->xref, SEEK_SET);
-  getXRef(desc);
+  if(getXRef(desc)) {
+    return -2;
+  }
 
   /* going to xref table or stream */
   lseek(desc->fd, state->xref, SEEK_SET);
@@ -1069,7 +1071,7 @@ int gotoRef(struct doc_descriptor *desc, size_t xref, int ref){
 
   } else {
     /* object is in object stream */
-
+    printf("%d %d %d\n", XRef->object_number, XRef->object_stream, XRef->offset_or_index);
 
   }
   return 0;
@@ -1314,16 +1316,18 @@ int setEncoding(struct doc_descriptor *desc, char *fontName) {
 
 int getXRef(struct doc_descriptor *desc) {
   struct pdfState *state = (struct pdfState *)(desc->myState);
-  struct xref *XRef;
+  struct xref *XRef = NULL;
   struct pdffilter *filter;
   struct pdffilter *tmpfilter;
   int len, i, t, len2, v;
-  int xinf, xsup, nbopened;
-  char buf[BUFSIZE], tmp[20];
-  char *decoded;
+  int xinf, xsup, nbopened, inflateFinished, restlen;
+  char buf[BUFSIZE], tmp[20], rest[7];
+  char *decoded, *decoded2;
   int size, length, prev;
   long int dictionaryBegin, currentObject;
   int field1Size, field2Size, field3Size;
+  char prediction[5];
+  z_stream z;
 
   len = read(desc->fd, buf, BUFSIZE);
 
@@ -1445,7 +1449,7 @@ int getXRef(struct doc_descriptor *desc) {
 	}
       }
       lseek(desc->fd, getNumber(buf + i), SEEK_SET);
-      getXRef(desc);      
+      return getXRef(desc);      
     }
       
 
@@ -1844,126 +1848,132 @@ int getXRef(struct doc_descriptor *desc) {
     i+=6;
     i += getNextLine(buf + i, len - i);
     lseek(desc->fd, i - len, SEEK_CUR);
-    len = read(desc->fd, buf, length);
 
     /* apply filters */
-    state->stream = (char *) malloc(50*length);
-    state->streamlength = 50*length;
-    if(filter->filtercode == flateDecode) {
-      uncompress(state->stream, &(state->streamlength), buf, length);
-    } else {
-      applyFilter(desc, filter->filtercode, buf, length);
-    }
-    tmpfilter = filter->next;
-    while(tmpfilter != NULL) {
-      if(tmpfilter->filtercode == flateDecode) {
-	uncompress(state->stream, &(state->streamlength), buf, length);
-      } else {
-	applyFilter(desc, tmpfilter->filtercode, buf, length);
-      }
-      tmpfilter = tmpfilter->next;
-    }
-
-    /* reverse prediction filter */
-    decoded = (char *) malloc(state->streamlength);
-    memcpy(decoded, state->stream + 1, 5);
-    len2 = 5;
-    for(i = 7; i < state->streamlength; i += 6) {
-      for(t = 0; t < 5; t++) {
-	decoded[len2] = decoded[len2 - 5] + state->stream[i + t];
-	len2++;
-      }
-    }
-    memcpy(state->stream, decoded, len2);
-    state->streamlength = len2;
-    free(decoded);
-
-    /* procede xref table */
-    if(state->XRef == NULL) {
-      XRef = (struct xref *) malloc(sizeof(struct xref));
-      state->XRef = XRef;
-      XRef->next = NULL;
-    } else {
-      XRef = state->XRef;
-      while(XRef->next != NULL) {
-	XRef = XRef->next;
-      }
-      XRef->next = (struct xref *) malloc(sizeof(struct xref));
-      XRef = XRef->next;
-      XRef->next = NULL;
-    }
-    i = 0;
+    memset(prediction, '\x00', 5);
+    memset(rest, '\x00', 7);
+    restlen = 0;
+    inflateFinished = 0;
     currentObject = xinf;
-    while(currentObject <= xsup) {
-      memcpy(tmp, state->stream + i, field1Size);
-      memcpy(tmp + field1Size, "\0", 1);
+    z.zalloc = Z_NULL;
+    z.zfree = Z_NULL;
+    z.next_in = buf;
+    z.avail_in = (length < BUFSIZE) ? length : BUFSIZE;
+    inflateInit(&z);
+    z.avail_in = 0;
 
-      if( tmp[0] == 0 ) {
-	/* skip free object entries */
-
-      } else if( tmp[0] == 1) {
-	/* standard xref table entry */
-	v = 0;
-	for(t = 0; t < field2Size; t++) {
-	  memcpy(((char *)&v) + t,
-		 state->stream + i + field1Size + field2Size - t - 1, 1);
-	}
-	XRef->offset_or_index = v;
-	XRef->object_number = currentObject;
-	XRef->isInObjectStream = 0;
-	if(currentObject < xsup) {
-	  XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	  XRef = XRef->next;
-	  XRef->next = NULL;
-	}
-
-
-      } else if( tmp[0] == 2) {
-	/* compressed object entry */
-	v = 0;
-	for(t = 0; t < field2Size; t++) {
-	  memcpy(((char *)&v) + t,
-		 state->stream + i + field1Size + field2Size - t - 1, 1);
-	}
-	XRef->object_stream = v;
-
-	v = 0;
-	for(t = 0; t < field3Size; t++) {
-	  memcpy(((char *)&v) + t,
-		 state->stream + i + field1Size + field2Size  + field3Size
-		 - t - 1, 1);
-	}
-	XRef->offset_or_index = v;
-	XRef->object_number = currentObject;
-	XRef->isInObjectStream = 1;
-	if(currentObject < xsup) {
-	  XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	  XRef = XRef->next;
-	  XRef->next = NULL;
-	}
-
-      } else {
-	/* unknown type (future pdf versions) */
-	fprintf(stderr, "Unknown entry type in xref stream : %d\n", tmp[0]);
-	return -2;
+    do {
+      if(z.avail_in == 0) {
+	len = read(desc->fd, buf, (length < BUFSIZE ) ? length : BUFSIZE);
+	length -= len;
+	z.next_in = buf;
+	z.avail_in += len;
       }
+      z.avail_out = 6000 - restlen;
+      decoded = (char *) malloc(6000);
+      memcpy(decoded, rest, restlen);
+      z.next_out = decoded + restlen;
+      inflateFinished = inflate(&z, Z_SYNC_FLUSH);
 
-      i += field1Size + field2Size + field3Size;
-      currentObject++;
-    }
+      /* reverse prediction filter */
+      decoded2 = (char *) malloc(5000);
+      len2 = 0;
+      for(i = 1; i < 6000 - z.avail_out - 4; i += 6) {
+	for(t = 0; t < 5; t++) {
+	  decoded2[len2] = (prediction[t] + decoded[i + t]);
+	  len2++;
+	}
+	memcpy(prediction, decoded2 + len2 - 5, 5);
+      }
+      memcpy(rest, decoded + i - 1, 6000 - z.avail_out  - i + 1);
+      restlen = 6000 - z.avail_out  - i + 1;
+      memcpy(decoded, decoded2, len2);
+      free(decoded2);
+      
+      /* procede xref table */
+      if(state->XRef == NULL) {
+	XRef = (struct xref *) malloc(sizeof(struct xref));
+	state->XRef = XRef;
+	XRef->next = NULL;
+      } else {
+	XRef = state->XRef;
+	while(XRef->next != NULL) {
+	  XRef = XRef->next;
+	}
+	XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	XRef = XRef->next;
+	XRef->next = NULL;
+      }
+      i = 0;
+      while(i < len2 && currentObject <= xsup) {
+	memcpy(tmp, decoded + i, field1Size);
+	memcpy(tmp + field1Size, "\0", 1);
 
-    free(state->stream);
-    state->stream = NULL;
+	if( tmp[0] == 0 ) {
+	  /* skip free object entries */
+	
+	} else if( tmp[0] == 1) {
+	  /* standard xref table entry */
+	  v = 0;
+	  for(t = 0; t < field2Size; t++) {
+	    memcpy(((char *)&v) + t,
+		   decoded + i + field1Size + field2Size - t - 1, 1);
+	  }
+	  XRef->offset_or_index = v;
+	  XRef->object_number = currentObject;
+	  XRef->isInObjectStream = 0;
+	  if(i < len2 - 6 && currentObject < xsup) {
+	    XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	    XRef = XRef->next;
+	    XRef->next = NULL;
+	  }
+	
+	
+	} else if( tmp[0] == 2) {
+	  /* compressed object entry */
+	  v = 0;
+	  for(t = 0; t < field2Size; t++) {
+	    memcpy(((char *)&v) + t,
+		   decoded + i + field1Size + field2Size - t - 1, 1);
+	  }
+	  XRef->object_stream = v;
+	  v = 0;
+	  for(t = 0; t < field3Size; t++) {
+	    memcpy(((char *)&v) + t,
+		   decoded + i + field1Size + field2Size  + field3Size
+		   - t - 1, 1);
+	  }
+	  XRef->offset_or_index = v;
+	  XRef->object_number = currentObject;
+	  XRef->isInObjectStream = 1;
+	  if(i < len2 - 6 && currentObject < xsup) {
+	    XRef->next = (struct xref *) malloc(sizeof(struct xref));
+	    XRef = XRef->next;
+	    XRef->next = NULL;
+	  }
+	
+	} else {
+	  /* unknown type (future pdf versions) */
+	  fprintf(stderr, "Unknown entry type in xref stream : %d\n", tmp[0]);
+	  return -2;
+	}
+      
+	i += field1Size + field2Size + field3Size;
+	currentObject++;
+      }
+    
+      free(decoded);
+    } while(inflateFinished == 0);
+
+    inflateEnd(&z);
     freeFilterStruct(filter);
 
     /* procede previous xref */
     if(prev != -1) {
       lseek(desc->fd, prev, SEEK_SET);
-      getXRef(desc);
+      return getXRef(desc);
     }
-    
   }
-
   return 0;
 }
 
@@ -1997,6 +2007,17 @@ int freeFilterStruct(struct pdffilter *filter) {
   while(filter != NULL) {
     tmp = filter;
     filter = filter->next;
+    free(tmp);
+  }
+  return 0;
+}
+
+int freeXRefStruct(struct xref *xref) {
+  struct xref *tmp;
+
+  while(xref != NULL) {
+    tmp = xref;
+    xref = xref->next;
     free(tmp);
   }
   return 0;

@@ -207,4 +207,13 @@ int version(int fd);
 int freeFilterStruct(struct pdffilter *filter);
 
 
+/**
+ * to free a xref struct
+ *
+ * \param xref the structure to free
+ * \return an error code
+ */
+int freeXRefStruct(struct xref *xref);
+
+
 #endif /* __P_LATEX_H__ */

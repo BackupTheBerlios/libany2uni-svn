@@ -45,7 +45,11 @@ int initPlugin(struct doc_descriptor *desc) {
     fprintf(stderr, "not PDF file\n");
     return -2;
   }
-
+/*  if(((struct pdfState *)(desc->myState))->version >= 5) {
+    fprintf(stderr, "pdf > 1.5 not yet implemented\n");
+    return -2;
+  }
+*/
   if (initReader(desc) < 0) {
     return -2;
   };
@@ -68,6 +72,7 @@ int initPlugin(struct doc_descriptor *desc) {
  */
 int closePlugin(struct doc_descriptor *desc) {
   freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
+  freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
   free(desc->myState);
   ucnv_close(desc->conv);
   close(desc->fd);
