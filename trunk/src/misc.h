@@ -96,13 +96,16 @@ struct pdfState {
   int     currentStream;           /* current stream object in page */
   int     currentOffset;           /* offset in current stream */
   struct pdffilter *filter;        /* stream encoding filter codes */
-  char    *stream;                 /* buffer to contain uncompressed stream */
+  int     stream;                  /* is the parser inside a text stream */
   uLongf  streamlength;            /* length of stream buffer */
   int     length;                  /* size of compressed stream */
   int     inString;                /* 1 if cursor is inside a string object */
   struct encodingTable *encodings; /* font encodings structure */
   char    currentFont[10];         /* current font (for encoding) */
   struct xref *XRef;               /* cross reference table */
+  int objectStream;                /* stream containing the desired object */
+  int offsetInStream;              /* offset of the object in the stream */
+  int first;                       /* offset to first object in stream */
 };
 
 

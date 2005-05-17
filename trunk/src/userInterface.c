@@ -252,8 +252,8 @@ int main(int argc, char *argv[]) {
     printf("usage : ./test <doc_file>\n");
     exit(0);
   }
-  
-/*    gettimeofday(&t1, NULL);
+/*  
+    gettimeofday(&t1, NULL);
   
   
   for (i = 0; i<20; i++) {
@@ -293,8 +293,8 @@ int main(int argc, char *argv[]) {
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-
-/*  }
+/*
+  }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);

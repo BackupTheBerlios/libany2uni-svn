@@ -1,6 +1,6 @@
 CC= gcc
-CFLAGS= -O3 -Wall -ansi
-LDFLAGS= -O3 -Wall -ansi
+CFLAGS= -g -Wall -ansi
+LDFLAGS= -g -Wall -ansi
 EXEC= p_pdf.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)

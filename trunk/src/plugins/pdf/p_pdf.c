@@ -91,7 +91,6 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   UErrorCode err;
 
   len = 0;
-
   outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */

@@ -71,11 +71,21 @@ int initReader(struct doc_descriptor *desc);
  * pointed by ref. (recursive)
  *
  * \param desc the document descriptor
- * \param xref a corss reference table offset (usually root xref)
  * \param ref the object's reference 
  * \return an error code
  */
-int gotoRef(struct doc_descriptor *desc, size_t xref, int ref);
+int gotoRef(struct doc_descriptor *desc, int ref);
+
+
+/**
+ * read buflen bytes of the current object (like the read() function)
+ *
+ * \param desc the document descriptor
+ * \param buf target buffer
+ * \param buflen size of target buffer
+ * \return the actual number of bytes read
+ */
+int readObject(struct doc_descriptor *desc, void *buf, size_t buflen);
 
 
 /**

@@ -25,28 +25,34 @@
 
 #include "p_pdf.h"
 #include <math.h>
-		
+
+int tr = 0;
 int getText(struct doc_descriptor *desc, char *out, int size) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   char buf[BUFSIZE];
   int len, i;
   int nbopened;
 
+  if(state->currentStream == -1) {
+    return NO_MORE_DATA;
+  }
+
   /* enter current page */
-  gotoRef(desc, state->xref, state->currentPage);
-  len = read(desc->fd, buf, BUFSIZE);
-  
+  gotoRef(desc, state->currentPage);
+  len = readObject(desc, buf, BUFSIZE);
+
   /* search dictionary */
   for (i = 0; strncmp(buf + i, "<<", 2); i++) {
-    if (i == len - 2) {
+    if (i >= len - 2) {
       strncpy(buf, buf + i + 1, 1);
-      len = read(desc->fd, buf + 1, BUFSIZE - 1) + 1;
+      len = readObject(desc, buf + 1, BUFSIZE - 1) + 1;
       i = 0;
     }
   }
   /* search content */
   nbopened = 0;
   while ((nbopened || strncmp(buf + i, ">>", 2)) && strncmp(buf + i, "/Contents", 9)) {
+
     if(!strncmp(buf + i, "<<", 2)) {
       nbopened++;
     }
@@ -54,9 +60,9 @@ int getText(struct doc_descriptor *desc, char *out, int size) {
       nbopened--;
     }
     i++;
-    if (i == len - 9) {
+    if (i >= len - 9) {
       strncpy(buf, buf + i, len - i);
-      len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
       i = 0;
     }
   }
@@ -67,19 +73,33 @@ int getText(struct doc_descriptor *desc, char *out, int size) {
       i += 9;
       while(!strncmp(buf + i, " ", 1)) {
 	i++;
+	if (i >= len) {
+	  len = readObject(desc, buf, BUFSIZE);
+	  i = 0;
+	}
       }
       if(!strncmp(buf + i, "[", 1)) {
 	/* this is an array of streams */
 	
 	/* get first stream */
 	i++;
+	if (i >= len) {
+	  len = readObject(desc, buf, BUFSIZE);
+	  i = 0;
+	}
 	while(!strncmp(buf + i, " ", 1) ||
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if (i == len) {
-	    len = read(desc->fd, buf, BUFSIZE);
+	  if (i >= len) {
+	    len = readObject(desc, buf, BUFSIZE);
+	    i = 0;
 	  }
+	}
+	if (i <= len - 10) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
 	}
 	state->currentStream = getNumber(buf + i);
 
@@ -87,9 +107,15 @@ int getText(struct doc_descriptor *desc, char *out, int size) {
 	/* unique stream */
 	while(!strncmp(buf + i, " ", 1)) {
 	  i++;
-	  if (i == len) {
-	    len = read(desc->fd, buf, BUFSIZE);
+	  if (i >= len) {
+	    len = readObject(desc, buf, BUFSIZE);
+	    i = 0;
 	  }
+	}
+	if (i <= len - 10) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
 	}
 	state->currentStream = getNumber(buf + i);
       }
@@ -103,10 +129,12 @@ int getText(struct doc_descriptor *desc, char *out, int size) {
       state->currentStream = 0;
       return getText(desc, out, size);
     } else {
+      state->currentStream = -1;
       return NO_MORE_DATA;
     }
   }
 
+  state->currentStream = -1;
   return NO_MORE_DATA;
 }
 
@@ -117,26 +145,69 @@ int getNextStream(struct doc_descriptor *desc) {
   int len, i;
   int nbopened;
 
-  gotoRef(desc, state->xref, state->currentPage);
-  len = read(desc->fd, buf, BUFSIZE);
-  for(i = 0; i <= len - 9 && strncmp(buf + i, "/Contents", 9); i++) {}
+  gotoRef(desc, state->currentPage);
+  len = readObject(desc, buf, BUFSIZE);
+  for(i = 0; i <= len - 9 && strncmp(buf + i, "/Contents", 9); i++) {
+    if (i >= len- 9) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+  }
   i += 9;
+  if (i >= len) {
+    len = readObject(desc, buf, BUFSIZE);
+    i = 0;
+  }
   while(!strncmp(buf + i, " ", 1)) {
     i++;
+    if (i >= len) {
+      len = readObject(desc, buf, BUFSIZE);
+      i = 0;
+    }
   }
+
   if (!strncmp(buf + i, "[", 1)) {
     strncmp(tmp, "\x00\x00\x00\x00\x00\x00", 6);
     sprintf(tmp, "%d ", state->currentStream);
     while(strncmp(buf + i, tmp, strlen(tmp))) {
       i++;
+      if (i >= len- 6) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
     }
     i +=  strlen(tmp);
-    for( ; strncmp(buf + i, "R", 1); i++) {}
+    if (i >= len) {
+      len = readObject(desc, buf, BUFSIZE);
+      i = 0;
+    }
+    for( ; strncmp(buf + i, "R", 1); i++) {
+      if (i >= len) {
+	len = readObject(desc, buf, BUFSIZE);
+	i = 0;
+      }
+    }
     i++;
+    if (i >= len) {
+      len = readObject(desc, buf, BUFSIZE);
+      i = 0;
+    }
     for( ; !strncmp(buf + i, " ", 1) ||
 	   !strncmp(buf + i, "\x0A", 1) ||
-	   !strncmp(buf + i, "\x0D", 1); i++) {}
+	   !strncmp(buf + i, "\x0D", 1); i++) {
+      if (i >= len) {
+	len = readObject(desc, buf, BUFSIZE);
+	i = 0;
+      }
+    }
     if(strncmp(buf + i, "]", 1)) {
+      if (i >= len - 10) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+	i = 0;
+      }
       state->currentStream = getNumber(buf + i);
       state->currentOffset = 0;
       return state->currentStream;
@@ -147,17 +218,29 @@ int getNextStream(struct doc_descriptor *desc) {
 
   do {
     if (getNextPage(desc) == -1) {
+      state->currentStream = -1;
       return NO_MORE_DATA;
     }
-    gotoRef(desc, state->xref, state->currentPage);
-    len = read(desc->fd, buf, BUFSIZE);
-    
+    gotoRef(desc, state->currentPage);
+    len = readObject(desc, buf, BUFSIZE);
+
     /* search dictionary */
-    for (i = 0; strncmp(buf + i, "<<", 2); i++) {}
+    for (i = 0; strncmp(buf + i, "<<", 2); i++) {
+      if (i >= len - 2) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+	i = 0;
+      }
+    }
     
     /* search content */
     nbopened = 0;
     for( ;strncmp(buf + i, ">>", 2) && strncmp(buf + i, "/Contents", 9); i++) {
+      if (i >= len - 9) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+	i = 0;
+      }
       if(!strncmp(buf + i, "<<", 2)) {
 	nbopened++;
       }
@@ -165,28 +248,63 @@ int getNextStream(struct doc_descriptor *desc) {
 	nbopened--;
       }
     }
-    
+     
   } while(strncmp(buf + i, "/Contents", 9));
 
   i += 9;
+  if (i >= len ) {
+    len = readObject(desc, buf, BUFSIZE);
+    i = 0;
+  }
   while(!strncmp(buf + i, " ", 1)) {
     i++;
+    if (i >= len ) {
+      len = readObject(desc, buf, BUFSIZE);
+      i = 0;
+    }
   }
   if(!strncmp(buf + i, "[", 1)) {
     /* this is an array of streams */
     
     /* get first stream */
     i++;
+    if (i >= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
     for( ;!strncmp(buf + i, " ", 1) ||
 	   !strncmp(buf + i, "\x0A", 1) ||
-	   !strncmp(buf + i, "\x0D", 1); i++) {}
+	   !strncmp(buf + i, "\x0D", 1); i++) {
+      if (i <= len - 10) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
+    }
+    if (i <= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     state->currentStream = getNumber(buf + i);
     state->currentOffset = 0;
     return state->currentStream;
     
   } else {
     /* unique stream */
-    for( ;!strncmp(buf + i, " ", 1); i++) {}
+    for( ;!strncmp(buf + i, " ", 1); i++) {
+      if (i >= len - 9) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+	i = 0;
+      }
+    }
+    if (i <= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     state->currentStream = getNumber(buf + i);
     state->currentOffset = 0;
     return state->currentStream;
@@ -201,11 +319,16 @@ int getNextPage(struct doc_descriptor *desc) {
   int nbopened;
 
   /* search parent */
-  gotoRef(desc, state->xref, state->currentPage);
-  len = read(desc->fd, buf, BUFSIZE);
+  gotoRef(desc, state->currentPage);
+  len = readObject(desc, buf, BUFSIZE);
   strncpy(tmp, buf + 29, 8);
   nbopened = 0;
-  for(i = 0; i <= len - 7 && strncmp(buf + i, "/Parent", 7); i++) {
+  for(i = 0; strncmp(buf + i, "/Parent", 7); i++) {
+    if (i >= len - 7) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
     if(!strncmp(buf + i, "<<", 2)) {
       nbopened++;
     }
@@ -218,52 +341,114 @@ int getNextPage(struct doc_descriptor *desc) {
       }
     }
   }
+
+  if (i >= len - 7) {
+    strncpy(buf, buf + i, len - i);
+    len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+    i = 0;
+  }
        
   i += 7;
+  if (i >= len) {
+    len = readObject(desc, buf, BUFSIZE);
+    i = 0;
+  }
   while(!strncmp(buf + i, " ", 1)) {
     i++;
+    if (i >= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
+  }
+  if (i <= len - 10) {
+    strncpy(buf, buf + i, len - i);
+    len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
   }
   parentRef = getNumber(buf + i);
-  gotoRef(desc, state->xref, parentRef);
+  gotoRef(desc, parentRef);
 
   /* search current page in kids */
-  len = read(desc->fd, buf, BUFSIZE);
-  for(i = 0; i <= len - 5 && strncmp(buf + i, "/Kids", 5); i++) {}
+  len = readObject(desc, buf, BUFSIZE);
+  for(i = 0; i <= len - 5 && strncmp(buf + i, "/Kids", 5); i++) {
+    if (i >= len - 5) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
+  }
   while(!strncmp(buf + i, " ", 1)) {
     i++;
+    if (i >= len - 7) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
   }
   strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 5);
   sprintf(tmp, "%d ", state->currentPage);
 
-  for( ; i <= len - strlen(tmp) && strncmp(buf + i, tmp, strlen(tmp)); i++) {}
+  for( ; i <= len - strlen(tmp) && strncmp(buf + i, tmp, strlen(tmp)); i++) {
+    if (i >= len - 7) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }
+  }
   i += strlen(tmp);
+  if (i >= len) {
+    len = readObject(desc, buf, BUFSIZE);
+    i = 0;
+  }
 
   /* skip end of reference */
-  for( ; strncmp(buf + i, "R", 1); i++) {}
-  i ++;
+  for( ; strncmp(buf + i, "R", 1); i++) {
+    if (i >= len) {
+      len = readObject(desc, buf, BUFSIZE);
+      i = 0;
+    }
+  }
+  i++;
   for( ; !strncmp(buf + i, " ", 1) ||
 	 !strncmp(buf + i, "\x0A", 1) ||
-	 !strncmp(buf + i, "\x0D", 1); i++) {}
+	 !strncmp(buf + i, "\x0D", 1); i++) {
+    if (i >= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+      i = 0;
+    }    
+  }
+  if (i >= len - 10) {
+    strncpy(buf, buf + i, len - i);
+    len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
+    i = 0;
+  }    
 
   /* get next page */
   if(strncmp(buf + i, "]", 1)) {
+    if (i <= len - 10) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     state->currentPage = getNumber(buf + i);
-    gotoRef(desc, state->xref, state->currentPage);
+    gotoRef(desc, state->currentPage);
     /*getEncodings(desc);*/
-    len = read(desc->fd, buf, BUFSIZE);
+    len = readObject(desc, buf, BUFSIZE);
     strncpy(tmp, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
-
+    i = 0;
     if (getValue(desc, buf, len, "Type", tmp)) {
-	fprintf(stderr, "Can't find Type\n");
-	return -2;
+      fprintf(stderr, "Can't find Type\n");
+      return -2;
     }
     while(!strncmp(tmp, "Pages", 5)) {
       i = 0;
       
       while(i <= len - 5 && strncmp(buf + i, "/Kids", 5)) {
-	if (i == len - 5) {
+	if (i >= len - 5) {
 	  strncpy(buf, buf + i, 5);
-	  len = read(desc->fd, buf + 5, BUFSIZE - 5) + 5;
+	  len = readObject(desc, buf + 5, BUFSIZE - 5) + 5;
 	  i = 0;
 	} else {
 	  i++;
@@ -272,16 +457,16 @@ int getNextPage(struct doc_descriptor *desc) {
       i += 5;
       while (!strncmp(buf + i, " ", 1)) {
 	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
+	if (i >= len) {
+	  len = readObject(desc, buf, BUFSIZE);
 	  i = 0;
 	}
       }
       i++;
       while (!strncmp(buf + i, " ", 1)) {
 	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
+	if (i >= len) {
+	  len = readObject(desc, buf, BUFSIZE);
 	  i = 0;
 	}
       }
@@ -290,18 +475,23 @@ int getNextPage(struct doc_descriptor *desc) {
 	strncpy(tmp + t, buf + i, 1);
 	t++;
 	i++;
-	if (i == len) {
-	  len = read(desc->fd, buf, BUFSIZE);
+	if (i >= len) {
+	  len = readObject(desc, buf, BUFSIZE);
 	  i = 0;
 	}
       }
       strncpy(tmp + t, "\0", 1);
-      gotoRef(desc, state->xref, atoi(tmp));
+      gotoRef(desc, atoi(tmp));
       state->currentPage = atoi(tmp);
       /*getEncodings(desc);*/
 
-      len = read(desc->fd, buf, BUFSIZE);
+      len = readObject(desc, buf, BUFSIZE);
       strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
+      if (i >= len - 6) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
       if (getValue(desc, buf, len, "Type", tmp) < 0) {
 	fprintf(stderr, "Can't find Type\n");
 	return -2;
@@ -341,22 +531,23 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
   enum filter  tfilter;
   struct pdffilter *filter;
   int beginByte;
-  int escaped;
+  int escaped, nbopened;
   int len, i, j, k, l, fini, v;
   char buf[BUFSIZE], tmp[20];
-  char *buf2, buf3[BUFSIZE];
+  char buf3[BUFSIZE];
   char fontName[12];
 
-  buf2 = NULL;
   escaped = 0;
+  nbopened = 0;
 
-  if(state->stream == NULL) {
-    gotoRef(desc, state->xref, state->currentStream);
+  if(!state->stream) {
+    state->stream = 1;
+    gotoRef(desc, state->currentStream);
     len = read(desc->fd, buf, BUFSIZE);
-    
+
     /* search dictionary */
     for (i = 0; strncmp(buf + i, "<<", 2); i++) {
-      if (i == len - 2) {
+      if (i >= len - 2) {
 	strncpy(buf, buf + i + 1, 1);
 	len = read(desc->fd, buf + 1, BUFSIZE - 1) + 1;
 	i = 0;
@@ -370,11 +561,11 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	i += 7;
 	while(!strncmp(buf + i, " ", 1)) {
 	  i++;
-	}
-	if (i > len - 7) {
-	  strncpy(buf, buf + i, len - i);
-	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i);
-	  i = 0;
+	  if (i >= len - 7) {
+	    strncpy(buf, buf + i, len - i);
+	    len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
 	}
 	
 	for(j = 0; strncmp(buf + i + j, " ", 1) &&
@@ -387,20 +578,31 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	if(!strncmp(buf + i + j, "/", 1) || !strncmp(buf + i + j, ">>", 2)) {
 
 	  /* Length is an integer */
-	  state->length = getNumber(buf + i);
-	  
+	  if (i <= len - 10) {
+	    strncpy(buf, buf + i, len - i);
+	    len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
+	  state->length = state->streamlength = getNumber(buf + i);
+
 	  /* Length is a reference */
 	} else {
 	  v = lseek(desc->fd, 0, SEEK_CUR);
-	  gotoRef(desc, state->xref, getNumber(buf + i));
+	  if (i <= len - 10) {
+	    strncpy(buf, buf + i, len - i);
+	    len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
+
+	  gotoRef(desc, getNumber(buf + i));
 	  l = read(desc->fd, buf3, BUFSIZE);
 	  j = getNextLine(buf3, l);
 	  while(!strncmp(buf3 + j, " ", 1)) {
 	    j++;
 	  }
-	  state->length = getNumber(buf3 + j);
+	  state->length = state->streamlength = getNumber(buf3 + j);
 	  lseek(desc->fd, v, SEEK_SET);
-	}
+    	}
       }
 
       /* get Filters */
@@ -420,7 +622,7 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	if(!strncmp(buf + i, "[", 1)) {
 
 	  while(strncmp(buf + i, "]", 1)) {
-	    
+   
 	    if (!strncmp(buf + i, "/", 1)) {
 	      i++;
 	      j = 0;
@@ -428,8 +630,9 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 		strncpy(tmp + j, buf + i, 1);
 		j++;
 		i++;
-		if (i == len) {
-		len = read(desc->fd, buf, BUFSIZE);
+		if (i >= len) {
+		  len = read(desc->fd, buf, BUFSIZE);
+		  i = 0;
 		}
 	      }
 	      strncpy(tmp + j, "\0", 1);
@@ -438,10 +641,12 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	      switch (tfilter) {
 	      case lzw:
 		fprintf(stderr, "LZW desompression not implemented\n");
+		state->currentStream = -1;
 		return NO_MORE_DATA;
 		break;
 	      case crypt:
 		fprintf(stderr, "Encrypted document : operation aborted\n");
+		state->currentStream = -1;
 		return NO_MORE_DATA;
 		break;
 	      default:
@@ -463,8 +668,9 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	    }
 	    
 	    i++;
-	    if (i == len) {
+	    if (i >= len) {
 	      len = read(desc->fd, buf, BUFSIZE);
+	      i = 0;
 	    }
 	  }
 
@@ -487,14 +693,19 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	  
 	  i++;
 	  j = 0;
+	  if (i >= len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
 	  while(strncmp(buf + i, " ", 1) &&
 		strncmp(buf + i, "\x0A", 1) &&
 		strncmp(buf + i, "\x0D", 1)) {
 	    strncpy(tmp + j, buf + i, 1);
 	    i++;
 	    j++;
-	    if (i == len) {
+	    if (i >= len) {
 	      len = read(desc->fd, buf, BUFSIZE);
+	      i = 0;
 	    }
 	  }
 	  strncpy(tmp + j, "\0", 1);
@@ -502,10 +713,12 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	  switch (tfilter) {
 	  case lzw:
 	    fprintf(stderr, "LZW desompression not implemented\n");
+	    state->currentStream = -1;
 	    return NO_MORE_DATA;
 	    break;
 	  case crypt:
 	    fprintf(stderr, "Encrypted document : operation aborted\n");
+	    state->currentStream = -1;
 	    return NO_MORE_DATA;
 	    break;
 	  default:
@@ -526,7 +739,7 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
     /* search stream begining */
     while(strncmp(buf + i, "stream", 6)) {
       i++;
-      if (i == len - 6) {
+      if (i >= len - 6) {
 	strncpy(buf, buf + i, len - i);
 	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
 	i = 0;
@@ -534,105 +747,234 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
     }
     i += getNextLine(buf + i, len - i);
     beginByte = lseek(desc->fd, i - len, SEEK_CUR);
-   
-    /* uncompress or copy stream */
-    buf2 = (char *) malloc(state->length);
-    state->stream = (char *) malloc(20*state->length);
-
-    len = read(desc->fd, buf2, state->length);
-
-    for(j = 0; j < 20*state->length; j++) {
-      strncpy(state->stream + j, "\x00", 1);
-    }
-
-    if(state->filter != NULL) {
-      filter = state->filter;
-      applyFilter(desc, filter->filtercode, buf2, len);
-      filter = filter->next;
-      while(filter != NULL) {
-	applyFilter(desc, filter->filtercode, state->stream, state->streamlength);
-	filter = filter->next;
-      }
-    } else {
-      strncpy(state->stream, buf2, len);
-      state->streamlength = len;
-    }
-    free(buf2);
-    buf2 = NULL;
   }
+  state->objectStream = state->currentStream;
+  state->offsetInStream = state->currentOffset;
+  state->first = 0;
+  len = readObject(desc, buf, BUFSIZE);
+  state->objectStream = state->currentStream;
 
   /* go to current offset in stream */
-  i = state->currentOffset;
+  i = 0;
 
   /* get next paragraph */
   fini = 0;
   l = 0;
+  /* end of stream */
+  if(len <= 0) {
+    fini = 1;
+    state->stream = 0;
+    freeFilterStruct(state->filter);
+    state->filter = NULL;
+    state->currentOffset = 0;
+    if(getNextStream(desc) == -1) {
+      return NO_MORE_DATA;
+    }
+    strncpy(out + l, "\0", 1);
+    return l;
+  }
+
   while (!fini) {
 
     /* font changed */
-    if(!state->inString && !strncmp(state->stream + i, "/", 1)) {
+    if(!state->inString && !strncmp(buf + i, "/", 1)) {
       i++;
       state->currentOffset++;
-      for(k = 0; strncmp(state->stream + i, " ", 1)
-	     && strncmp(state->stream + i, "\x0A", 1)
-	     && strncmp(state->stream + i, "\x0D", 1); i++ && state->currentOffset++) {
-	strncpy(fontName + k, state->stream + i, 1);
+      state->offsetInStream = state->currentOffset;
+      if(i >= len - 1) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i , BUFSIZE - len + i) + len - i;
+	state->objectStream = state->currentStream;
+	i = 0;
+      }
+      /* end of stream */
+      if(len <= 0) {
+	fini = 1;
+	state->stream = 0;
+	freeFilterStruct(state->filter);
+	state->filter = NULL;
+	state->currentOffset = 0;
+	strncpy(out + l, "\0", 1);
+	if(getNextStream(desc) == -1) {
+	  return l;
+	}
+	return l;
+      }
+
+      for(k = 0; strncmp(buf + i, " ", 1)
+	    && strncmp(buf + i, "\x0A", 1)
+	    && strncmp(buf + i, "\x0D", 1); ) {
+	i++;
+	state->currentOffset++;
+	state->offsetInStream = state->currentOffset;
+	if(i >= len - 1) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i , BUFSIZE - len + i) + len - i;
+	  state->objectStream = state->currentStream;
+	  i = 0;
+	}
+	/* end of stream */
+	if(len <= 0) {
+	  fini = 1;
+	  state->stream = 0;
+	  freeFilterStruct(state->filter);
+	  state->filter = NULL;
+	  state->currentOffset = 0;
+	  strncpy(out + l, "\0", 1);
+	  if(getNextStream(desc) == -1) {
+	    return l;
+	  }
+	  return l;
+	}
+	strncpy(fontName + k, buf + i, 1);
 	k++;
       }
       strncpy(fontName + k, "\0", 1);
-/*      if(strncmp(state->currentFont, fontName, strlen(fontName))) {
-	if (!setEncoding(desc, fontName)) {
-	  strncpy(state->currentFont, fontName, strlen(fontName));
-	  strncpy(state->currentFont + strlen(fontName), "\0", 1);
-	}
-      }*/
+      /*      if(strncmp(state->currentFont, fontName, strlen(fontName))) {
+	      if (!setEncoding(desc, fontName)) {
+	      strncpy(state->currentFont, fontName, strlen(fontName));
+	      strncpy(state->currentFont + strlen(fontName), "\0", 1);
+	      }
+	      }*/
     }
 
     /* end of array ( might be an end of line ) */
-    if(l < size - 1 && !state->inString && !strncmp(state->stream + i, "]", 1)) {
+    if(l < size - 1 && !state->inString && !strncmp(buf + i, "]", 1)) {
       strncpy(out + l, " ", 1);
       l++;
       i++;
       state->currentOffset++;
+      state->offsetInStream = state->currentOffset;
+      if(i >= len - 1) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	state->objectStream = state->currentStream;
+	i = 0;
+      }
+      /* end of stream */
+      if(len <= 0) {
+	fini = 1;
+	state->stream = 0;
+	freeFilterStruct(state->filter);
+	state->filter = NULL;
+	state->currentOffset = 0;
+	strncpy(out + l, "\0", 1);
+	if(getNextStream(desc) == -1) {
+	  return l;
+	}
+	return l;
+      }
     }
 
     /* get normal string */
-    if(l < size - 1 && (state->inString || !strncmp(state->stream + i, "(", 1))) {
-
-      if(!strncmp(state->stream + i, "(", 1)) {
+    if(l < size - 1 && (state->inString || !strncmp(buf + i, "(", 1))) {
+      if(!state->inString && !strncmp(buf + i, "(", 1)) {
 	state->inString = 1;
 	i++;
 	state->currentOffset++;
+	state->offsetInStream = state->currentOffset;
+	if(i >= len - 1) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  state->objectStream = state->currentStream;
+	  i = 0;
+	}
+	/* end of stream */
+	if(len <= 0) {
+	  fini = 1;
+	  state->stream = 0;
+	  state->inString = 0;
+	  freeFilterStruct(state->filter);
+	  state->filter = NULL;
+	  state->currentOffset = 0;
+	  strncpy(out + l, "\0", 1);
+	  if(getNextStream(desc) == -1) {
+	    return l;
+	  }
+	  return l;
+	}
       }
-      while (l < size - 1 && strncmp(state->stream + i, ")", 1)) {
+      while (l < size - 1 && strncmp(buf + i, ")", 1)) {
 
 	/* skip multiple spaces */
-	while(!strncmp(state->stream + i, "  ", 2)){
+	while(!strncmp(buf + i, "  ", 2)){
 	  i++;
 	  state->currentOffset++;
+	  state->offsetInStream = state->currentOffset;
+	  if(i >= len - 1) {
+	    strncpy(buf, buf + i, len - i);
+	    len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	    state->objectStream = state->currentStream;
+	    i = 0;
+	  }
+	  /* end of stream */
+	  if(len <= 0) {
+	    fini = 1;
+	    state->stream = 0;
+	    state->inString = 0;
+	    freeFilterStruct(state->filter);
+	    state->filter = NULL;
+	    state->currentOffset = 0;
+	    strncpy(out + l, "\0", 1);
+	    if(getNextStream(desc) == -1) {
+	      return l;
+	    }
+	    return l;
+	  }
 	}
 
 	/* escape characters */
-	if(!strncmp(state->stream + i, "\\", 1)) {
+	if(!strncmp(buf + i, "\\", 1)) {
 	  i++;
 	  state->currentOffset++;
-	  if(strncmp(state->stream + i, "(", 1) &&
-	     strncmp(state->stream + i, ")", 1) &&
-	     strncmp(state->stream + i, "\\", 1)) {
+	  state->offsetInStream = state->currentOffset;
+	  if(i >= len - 1) {
+	    len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	    state->objectStream = state->currentStream;
+	    i = 0;
+	  }
+	  if(len <= 0) {
+	    fini = 1;
+	    state->stream = 0;
+	    state->inString = 0;
+	    freeFilterStruct(state->filter);
+	    state->filter = NULL;
+	    state->currentOffset = 0;
+	    strncpy(out + l, "\0", 1);
+	    if(getNextStream(desc) == -1) {
+	      return l;
+	    }
+	    return l;
+	  }
+	  
+	  if(strncmp(buf + i, "(", 1) &&
+	     strncmp(buf + i, ")", 1) &&
+	     strncmp(buf + i, "\\", 1)) {
 
-	    if (!strncmp(state->stream + i, "n", 1) ||
-		!strncmp(state->stream + i, "r", 1) ||
-		!strncmp(state->stream + i, "t", 1) ||
-		!strncmp(state->stream + i, "b", 1) ||
-		!strncmp(state->stream + i, "f", 1)) {
-	      i++;
-	      state->currentOffset++;
+	    if (!strncmp(buf + i, "n", 1) ||
+		!strncmp(buf + i, "r", 1) ||
+		!strncmp(buf + i, "t", 1) ||
+		!strncmp(buf + i, "b", 1) ||
+		!strncmp(buf + i, "f", 1)) {
+	      strncpy(out + l, " ", 1);
+	      l++;
+	      if(l >= size - 1) {
+		fini = 1;
+		state->stream = 0;
+		freeFilterStruct(state->filter);
+		state->filter = NULL;
+		state->currentOffset = 0;
+		strncpy(out + l, "\0", 1);
+		return l;
+	      }
+	      escaped = 1;
+
 	    } else {
 
 	      /* octal code */
 	      v = 0;
 	      for(j = 0; j < 3; j++) {
-		strncpy(tmp, state->stream + i + j, 1);
+		strncpy(tmp, buf + i + j, 1);
 		strncpy(tmp + 1, "\0", 1);
 		v += atoi(tmp) * pow(8, 2 - j);
 	      }
@@ -640,40 +982,60 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	      l++;
 	      i += 2;
 	      state->currentOffset += 2;
+	      state->offsetInStream = state->currentOffset;
+	      if(i >= len - 1) {
+		strncpy(buf, buf + i, len - i);
+		len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+		state->objectStream = state->currentStream;
+		i = 0;
+	      }
 	      escaped = 1;
 	    }
 	  }
 	}
 	/* skip useless characters */
 	if(!escaped &&
-	   strncmp(state->stream + i, "\x0A", 1) &&
-	   strncmp(state->stream + i, "\x0D", 1) &&
-	   strncmp(state->stream + i, "\x0C", 1) &&
-	   strncmp(state->stream + i, "\x0B", 1)) {
+	   strncmp(buf + i, "\x0A", 1) &&
+	   strncmp(buf + i, "\x0D", 1) &&
+	   strncmp(buf + i, "\x0C", 1) &&
+	   strncmp(buf + i, "\x0B", 1)) {
 
 	  /* charset mapping */
 	  /*-------------------------------------------------------------*/
 
-	  strncpy(out + l, state->stream + i, 1);
+	  strncpy(out + l, buf + i, 1);
 	  l++;
 	}
 	escaped = 0;
 	i++;
 	state->currentOffset++;
+	state->offsetInStream = state->currentOffset;
+	if(len > 0 && i >= len - 1) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  state->objectStream = state->currentStream;
+	  i = 0;
+	}
       }
-      if(!strncmp(state->stream + i, ")", 1)) {
+      if(!strncmp(buf + i, ")", 1)) {
 	state->inString = 0;
       }
     
       /* get hex string */
-    } else if (!strncmp(state->stream + i, "<", 1)) {
+    } else if (!strncmp(buf + i, "<", 1)) {
       i++;
       state->currentOffset++;
+      state->offsetInStream = state->currentOffset;
+      if(i >= len - 1) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	state->objectStream = state->currentStream;
+	i = 0;
+      }
       j = 0;
       v = 0;
-      while(l < size - 1 && strncmp(state->stream + i, ">", 1)) {
-	strncpy(tmp, state->stream + i, 1);
-	strncpy(tmp + 1, "\0", 1);
+      while(l < size - 1 && strncmp(buf + i, ">", 1)) {
+	strncpy(tmp, buf + i, 1);
 	v *= 16;
 	if(!strncmp(tmp, "a", 1) || !strncmp(tmp, "A", 1)) {
 	  v += 10;
@@ -692,45 +1054,76 @@ int procedeStream(struct doc_descriptor *desc, char *out, int size) {
 	}
 	i++;
 	state->currentOffset++;
+	state->offsetInStream = state->currentOffset;
+	if(i >= len - 1) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  state->objectStream = state->currentStream;
+	  i = 0;
+	}
       }
       sprintf(out + l, "%c", v);
       l++;
     }
 
     /* release output */
-    if (l >= size - 1 || !strncmp(state->stream + i, "ET", 2)) {
-      i ++;
-      state->currentOffset ++;
-      fini = 1;
-      if (l >= size-1) {
+    if (l >= size - 1 || !strncmp(buf + i, "ET", 2)) {
+
+      i++;
+      state->currentOffset++;
+      state->offsetInStream = state->currentOffset;
+      if(i >= len - 1) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	state->objectStream = state->currentStream;
+	i = 0;
+      }
+      if (l > size-1) {
 	l = size-1;
       }
       strncpy(out + l, "\0", 1);
+      /* end of stream */
+      if(len <= 0) {
+	fini = 1;
+	state->stream = 0;
+	freeFilterStruct(state->filter);
+	state->filter = NULL;
+	state->currentOffset = 0;
+	strncpy(out + l, "\0", 1);
+	if(getNextStream(desc) == -1) {
+	  return l;
+	}
+	return l;
+      }
+      fini = 1;
       return l;
     }
 
     i++;
     state->currentOffset++;
+    state->offsetInStream = state->currentOffset;
+    if(i >= len) {
+      len = readObject(desc, buf, BUFSIZE);
+      state->objectStream = state->currentStream;
+      i = 0;
+    }
 
     /* end of stream */
-    if(i >= state->streamlength) {
+    if(len <= 0) {
       fini = 1;
-      free(state->stream);
-      state->stream = NULL;
+      state->stream = 0;
+      freeFilterStruct(state->filter);
       state->filter = NULL;
-      state->streamlength = 0;
       state->currentOffset = 0;
-      if(getNextStream(desc) == -1) {
-	return NO_MORE_DATA;
-      }
       strncpy(out + l, "\0", 1);
+      if(getNextStream(desc) == -1) {
+	return l;
+      }
       return l;
     }
   }
   
-  free(state->stream);
-  return NO_MORE_DATA;
-  
+  return NO_MORE_DATA;  
 }
 
 int getNumber(char *buf) {
@@ -750,7 +1143,7 @@ int getNumber(char *buf) {
 
 
 int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int buflen) {
-  struct pdfState *state = ((struct pdfState *)(desc->myState));
+/*  struct pdfState *state = ((struct pdfState *)(desc->myState));
   char *inbuf;
   char _85[5], ascii[4];
   int i, j;
@@ -762,7 +1155,7 @@ int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int 
   switch(filter) {
 
   case flateDecode:
-    state->streamlength = 20*state->length;
+    state->streamlength = 100*state->length;
     uncompress(state->stream, &(state->streamlength), inbuf, buflen);
     break;
 
@@ -803,7 +1196,7 @@ int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int 
 
   }
 
-  free(inbuf);
+  free(inbuf);*/
   return 0;
 }
 
@@ -811,18 +1204,26 @@ int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int 
 int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char *value) {
   int i, j, len, nbopened;
   char token[21];
+  char buf2[BUFSIZE];
+
+  strncpy(buf2, buf, size);
 
   /* finding begining of dictionary */
   len = size;
-  for(i = 0; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {
-    if (i == len - 2) {
-      strncpy(buf, buf + i, 2);
-      len = read(desc->fd, buf + 2, BUFSIZE - 2) + 2;
+  for(i = 0; i < len - 1 && strncmp(buf2 + i, "<<", 2); i++) {
+    if(i >= len - 1) {
+      strncpy(buf2, buf2 + i, len - i);
+      len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
       i = 0;
     }
   }
   i += 2;
 
+  if(i >= len - strlen(token)) {
+    strncpy(buf2, buf2 + i, len - i);
+    len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
   /* finding desired field */
   for(j=0; j<21; j++) {
     strncpy(token + j, "\x00", 1);
@@ -831,48 +1232,69 @@ int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char 
 
   nbopened = 0;
   for( ; i <= len - strlen(token) &&
-	 strncmp(buf + i, token, strlen(token)) &&
-	 (nbopened || strncmp(buf + i, ">>", 2)); i++) {
-    if(!strncmp(buf + i, "<<", 2)) {
+	 strncmp(buf2 + i, token, strlen(token)) &&
+	 (nbopened || strncmp(buf2 + i, ">>", 2)); i++) {
+    if(i >= len - strlen(token)) {
+      strncpy(buf2, buf2 + i, len - i);
+      len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+
+    if(!strncmp(buf2 + i, "<<", 2)) {
       nbopened++;
     }
-    if(!strncmp(buf + i, ">>", 2)) {
+    if(!strncmp(buf2 + i, ">>", 2)) {
       nbopened--;
     }
-    if (i == len - strlen(token)) {
-      strncpy(buf, buf + i, strlen(token));
-      len = read(desc->fd, buf + strlen(token), BUFSIZE - strlen(token)) + strlen(token);
-      i = 0;
-    }
   }
 
-  if (!strncmp(buf + i, ">>", 2)) {
+  if (!strncmp(buf2 + i, ">>", 2)) {
     return -1;
   }
+
+  if(i >= len - strlen(token)) {
+    strncpy(buf2, buf2 + i, len - i);
+    len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
+
   i += strlen(token);
 
-  while(!strncmp(buf + i, " ", 1)) {
+  if(i >= len - 20) {
+    strncpy(buf2, buf2 + i, len - i);
+    len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
+
+  while(!strncmp(buf2 + i, " ", 1)) {
     i++;
-    if (i == len) {
-      len = read(desc->fd, buf, BUFSIZE);
+    if(i >= len - 20) {
+      strncpy(buf2, buf2 + i, len - i);
+      len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
       i = 0;
     }
   }
 
-  if(strncmp(buf + i, "/", 1)) {
+  if(strncmp(buf2 + i, "/", 1)) {
     return -1;
   }
   i++;
+  if(i >= len - 20) {
+    strncpy(buf2, buf2 + i, len - i);
+    len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
 
   /* filling value string */
-  for(j = 0; strncmp(buf + i, " ", 1)
-	&& strncmp(buf + i, "/", 1)
-	&& strncmp(buf + i, "\x0A", 1)
-	&& strncmp(buf + i, "\x0D", 1); j++) {
-    strncpy(value + j, buf + i, 1);
+  for(j = 0; strncmp(buf2 + i, " ", 1)
+	&& strncmp(buf2 + i, "/", 1)
+	&& strncmp(buf2 + i, "\x0A", 1)
+	&& strncmp(buf2 + i, "\x0D", 1); j++) {
+    strncpy(value + j, buf2 + i, 1);
     i++;
-    if (i == len) {
-      len = read(desc->fd, buf, BUFSIZE);
+    if(i >= len - 20) {
+      strncpy(buf2, buf2 + i, len - i);
+      len = readObject(desc, buf2 + len - i, BUFSIZE - len + i) + len - i;
       i = 0;
     }
   }
@@ -889,7 +1311,7 @@ int initReader(struct doc_descriptor *desc) {
 
   state->currentStream = state->currentOffset = 0;
   state->length = 0;
-  state->stream = NULL;
+  state->stream = 0;
   state->inString = 0;
   state->encodings = NULL;
   strncpy(state->currentFont, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
@@ -940,7 +1362,7 @@ int initReader(struct doc_descriptor *desc) {
 	found = 1;
       }
     }
-    if(i == len - 5) {
+    if(i >= len - 5) {
       strncpy(buf, buf + i + 1, 4);
       len = read(desc->fd, buf + 4, BUFSIZE - 4) + 4;
       i = 0;
@@ -954,19 +1376,29 @@ int initReader(struct doc_descriptor *desc) {
   /* getting Root (catalog) reference */
   i += 4;
   while (!strncmp(buf + i, " ", 1)) {
-      i++;
+    i++;
   }
   state->catalogRef = getNumber(buf + i);
 
   /* going to catalog */
-  gotoRef(desc, state->xref, state->catalogRef);
-  len = read(desc->fd, buf, BUFSIZE);
+  gotoRef(desc, state->catalogRef);
+  len = readObject(desc, buf, BUFSIZE);
   
   /* looking for page tree reference */
   found = 0;
   for( i = 0; i < len - 5 && !found; i++) {
+    if (i >= len - 7) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     if(!strncmp(buf + i, "/", 1)) {
       i++;
+      if (i >= len - 5) {
+	strncpy(buf, buf + i, len - i);
+	len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	i = 0;
+      }
       getKeyword(buf + i, keyword);
       if (!strncmp(keyword, "Pages", 5)) {
 	found = 1;
@@ -977,44 +1409,64 @@ int initReader(struct doc_descriptor *desc) {
     fprintf(stderr, "Unable to find Pages in catalog\n");
   }
   i += 5;
+  if (i >= len - 10) {
+    strncpy(buf, buf + i, len - i);
+    len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
   state->pagesRef = getNumber(buf + i);
   
   /* going to page tree */
-  gotoRef(desc, state->xref, state->pagesRef);
+  gotoRef(desc, state->pagesRef);
   /*getEncodings(desc);*/
-  len = read(desc->fd, buf, BUFSIZE);
+  len = readObject(desc, buf, BUFSIZE);
   if (getValue(desc, buf, len, "Type", tmp) < 0) {
     fprintf(stderr, "Can't find Type\n");
     return -2;
-    }
-  
+  }
+
   /* finding first page */
   while(!strncmp(tmp, "Pages", 5)) {
     i = 0;
     
     while(i <= len - 5 && strncmp(buf + i, "/Kids", 5)) {
-      if (i == len - 5) {
+      if (i >= len - 5) {
 	strncpy(buf, buf + i, 5);
-	len = read(desc->fd, buf + 5, BUFSIZE - 5) + 5;
+	len = readObject(desc, buf + 5, BUFSIZE - 5) + 5;
 	i = 0;
       } else {
 	i++;
+	if (i >= len - 5) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
+	}
       }
     }
     i += 5;
+    if (i >= len - 5) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     while(!strncmp(buf + i, " ", 1)) {
       i++;
-      if (i == len) {
-	len = read(desc->fd, buf, BUFSIZE);
+      if (i >= len) {
+	len = readObject(desc, buf, BUFSIZE);
 	i = 0;
       }
     }
     i++;
+    if (i >= len - 5) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
     while (!strncmp(buf + i, " ", 1)) {
       i++;
-      if (i == len) {
-	len = read(desc->fd, buf, BUFSIZE);
-	  i = 0;
+      if (i >= len) {
+	len = readObject(desc, buf, BUFSIZE);
+	i = 0;
       }
     }
     t = 0;
@@ -1023,31 +1475,36 @@ int initReader(struct doc_descriptor *desc) {
       strncpy(tmp + t, buf + i, 1);
       t++;
       i++;
-      if (i == len) {
-	len = read(desc->fd, buf, BUFSIZE);
+      if (i >= len) {
+	len = readObject(desc, buf, BUFSIZE);
 	i = 0;
       }
     }
     strncpy(tmp + t, "\0", 1);
-    gotoRef(desc, state->xref, atoi(tmp));
+    gotoRef(desc, atoi(tmp));
     /*getEncodings(desc);*/
     state->currentPage = atoi(tmp);
     
-    len = read(desc->fd, buf, BUFSIZE);
+    len = readObject(desc, buf, BUFSIZE);
     strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
     if (getValue(desc, buf, len, "Type", tmp) < 0) {
       fprintf(stderr, "Can't find Type\n");
       return -2;
     }
   }
-  
+
   return OK;
 }
 
 
-int gotoRef(struct doc_descriptor *desc, size_t xref, int ref){
+int gotoRef(struct doc_descriptor *desc, int ref){
   struct pdfState *state = (struct pdfState *)(desc->myState);
   struct xref *XRef;
+  struct pdffilter *tmpfilter, *filter = NULL;
+  char buf[BUFSIZE], buf2[BUFSIZE], tmp[20];
+  int len, len2, i, j, v, l, found;
+  int nbopened;
+  z_stream z;
 
   /* finding reference in table */
   XRef = state->XRef;
@@ -1063,16 +1520,176 @@ int gotoRef(struct doc_descriptor *desc, size_t xref, int ref){
     return -2;
   }
 
-
   if(!XRef->isInObjectStream) {
 
     /* setting file cursor */
+    state->objectStream = -1;
     lseek(desc->fd, XRef->offset_or_index, SEEK_SET);
 
   } else {
     /* object is in object stream */
-    printf("%d %d %d\n", XRef->object_number, XRef->object_stream, XRef->offset_or_index);
+    state->objectStream = XRef->object_stream;
 
+    /* position on object stream */
+    for(XRef = state->XRef; XRef != NULL &&
+	  XRef->object_number != state->objectStream; XRef = XRef->next) {}
+    if(XRef == NULL) {
+      fprintf(stderr, "cannot find object stream number %d\n", state->objectStream);
+      return -2;
+    }
+    lseek(desc->fd, XRef->offset_or_index, SEEK_SET);
+    len = read(desc->fd, buf, BUFSIZE);
+
+    /* search dictionary */
+    for(i = 0; strncmp(buf + i, "<<", 2); i++) {}
+    i += 2;
+
+    /* get Length, First and filters */
+    nbopened = 0;
+    while(nbopened || strncmp(buf + i, ">>", 2)) {
+      if(!strncmp(buf + i, "<<", 2)) {
+	nbopened++;
+      } else if(!strncmp(buf + i, ">>", 2)) {
+	nbopened--;
+      }
+
+      /* get Length */
+      if(!strncmp(buf + i, "/Length", 7)) {
+	i += 7;
+	while(!strncmp(buf + i, " ", 1)) {
+	  i++;
+	}
+
+	for(j = 0; strncmp(buf + i + j, " ", 1) &&
+	      strncmp(buf + i + j, "/", 1) &&
+	      strncmp(buf + i + j, "\x0A", 1) &&
+	      strncmp(buf + i + j, "\x0D", 1); j++) {}
+	if(strncmp(buf + i + j, "/", 1) && strncmp(buf + i + j, ">>", 2)) {
+	  j++;
+	}
+	if(!strncmp(buf + i + j, "/", 1) || !strncmp(buf + i + j, ">>", 2)) {
+
+	  /* Length is an integer */
+	  state->streamlength = state->length = getNumber(buf + i);
+	  
+	  /* Length is a reference */
+	} else {
+	  v = lseek(desc->fd, 0, SEEK_CUR);
+	  gotoRef(desc, getNumber(buf + i));
+	  l = read(desc->fd, buf2, BUFSIZE);
+	  j = getNextLine(buf2, l);
+	  while(!strncmp(buf2 + j, " ", 1)) {
+	    j++;
+	  }
+	  state->streamlength = state->length = getNumber(buf2 + j);
+	  lseek(desc->fd, v, SEEK_SET);
+	}
+      }
+
+      /* get First */
+      if(!strncmp(buf + i, "/First", 3)) {
+	i += 6;
+	while(!strncmp(buf + i, " ", 1)) {
+	  i++;
+	}
+	state->first = getNumber(buf + i);
+      }
+
+      /* get filters */
+      if(!strncmp(buf + i, "/Filter", 7)) {
+	i += 7;
+	while(!strncmp(buf + i, " ", 1)) {
+	  i++;
+	}
+	
+	/* array of filters */
+	if(!strncmp(buf + i, "[", 1)) {
+	  
+	  while(strncmp(buf + i, "]", 1)) {
+	    
+	    if (!strncmp(buf + i, "/", 1)) {
+	      i++;
+	      j = 0;
+	      while(strncmp(buf + i, " ", 1)) {
+		strncpy(tmp + j, buf + i, 1);
+		j++;
+		i++;
+	      }
+	      strncpy(tmp + j, "\0", 1);
+	      if(filter == NULL) {
+		filter = (struct pdffilter *) malloc(sizeof(struct pdffilter));
+		filter->next = NULL;
+		tmpfilter = filter;
+	      } else {
+		for(tmpfilter = filter; tmpfilter->next != NULL;
+		    tmpfilter = tmpfilter->next) {}
+	      }
+	      tmpfilter->filtercode = identifyFilter(tmp);
+	    }
+	  }
+
+	  /* unique filter */
+	} else {
+
+	  /* search end of filters linked list in state */
+	  filter = (struct pdffilter *) malloc(sizeof(struct pdffilter));
+	  filter->next = NULL;
+	  
+	  i++;
+	  j = 0;
+	  while(strncmp(buf + i, " ", 1) &&
+		strncmp(buf + i, "\x0A", 1) &&
+		strncmp(buf + i, "\x0D", 1)) {
+	    strncpy(tmp + j, buf + i, 1);
+	    i++;
+	    j++;
+	  }
+	  strncpy(tmp + j, "\0", 1);
+	  filter->filtercode = identifyFilter(tmp);
+	}
+      }
+
+      i++;
+    }
+
+    /* search stream beginning */
+    for( ; strncmp(buf + i, "stream", 6); i++) {}
+    i += 6;
+    i += getNextLine(buf + i, len - i);
+    lseek(desc->fd, i - len, SEEK_CUR);
+
+    /* inflate stream beginning and find offset of desired object */
+    found = 0;
+    len = read(desc->fd, buf, (state->length < BUFSIZE) ? state->length : BUFSIZE);
+    state->length -= len;
+    z.zalloc = Z_NULL;
+    z.zfree = Z_NULL;
+    z.next_in = buf;
+    z.avail_in = len;
+    z.avail_out = BUFSIZE;
+    z.next_out = buf2;
+    inflateInit(&z);
+    inflate(&z, Z_SYNC_FLUSH);
+    len2 = BUFSIZE - z.avail_out;
+
+    for(i = 0; !found && i < len2; ) {
+      if(getNumber(buf2 + i) == ref) {
+	found = 1;
+      }
+
+      for( ; strncmp(buf2 + i, " ", 1); i++) {}
+      for( ; !strncmp(buf2 + i, " ", 1); i++) {}
+      if(found) {
+	state->offsetInStream = getNumber(buf2 + i);
+
+      } else {
+	for( ; strncmp(buf2 + i, " ", 1); i++) {}
+	for( ; !strncmp(buf2 + i, " ", 1); i++) {}
+      }
+    }
+    
+    inflateEnd(&z);
+    freeFilterStruct(filter);
   }
   return 0;
 }
@@ -1119,7 +1736,7 @@ int getEncodings(struct doc_descriptor *desc) {
   prevPosition = lseek(desc->fd, 0, SEEK_CUR);
 
   /* search fonts in current object */
-  len = read(desc->fd, buf, BUFSIZE);
+  len = readObject(desc, buf, BUFSIZE);
 
   /* search dictionary */
   for (i = 0; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {}
@@ -1148,8 +1765,8 @@ int getEncodings(struct doc_descriptor *desc) {
   }
   
   /* enter ressources */
-  gotoRef(desc, state->xref, getNumber(buf + i));
-  len = read(desc->fd, buf, BUFSIZE);
+  gotoRef(desc, getNumber(buf + i));
+  len = readObject(desc, buf, BUFSIZE);
 
   /* search dictionary */
   for (i = 0; i < len - 1 && strncmp(buf + i, "<<", 2); i++) {}
@@ -1177,8 +1794,8 @@ int getEncodings(struct doc_descriptor *desc) {
   
   /* enter fonts */
   if(strncmp(buf + i, "<<", 2)) {
-    gotoRef(desc, state->xref, getNumber(buf + i));
-    len = read(desc->fd, buf, BUFSIZE);
+    gotoRef(desc, getNumber(buf + i));
+    len = readObject(desc, buf, BUFSIZE);
     i = 0;
   }
 
@@ -1200,7 +1817,7 @@ int getEncodings(struct doc_descriptor *desc) {
       strncpy(name, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 10);
       getKeyword(buf + i, name);
 
-     /* is the font already registered */
+      /* is the font already registered */
       if(encoding == NULL) {
 	state->encodings = (struct encodingTable *) malloc(sizeof(struct encodingTable));
 	encoding = state->encodings;
@@ -1223,8 +1840,8 @@ int getEncodings(struct doc_descriptor *desc) {
 	
 	/* get font encoding */
 	i += strlen(name) + 1;
-	gotoRef(desc, state->xref, getNumber(buf + i));
-	len2 = read(desc->fd, buf2, BUFSIZE);
+	gotoRef(desc, getNumber(buf + i));
+	len2 = readObject(desc, buf2, BUFSIZE);
 
 	/* search dictionary */
 	for (j = 0; j < len2 - 1 && strncmp(buf2 + j, "<<", 2); j++) {}
@@ -1481,7 +2098,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1494,7 +2111,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1510,7 +2127,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1523,7 +2140,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1539,7 +2156,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1553,7 +2170,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  tmpfilter = filter;
 
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1562,7 +2179,7 @@ int getXRef(struct doc_descriptor *desc) {
 		  !strncmp(buf + i, "\x0A", 1) ||
 		  !strncmp(buf + i, "\x0D", 1)) {
 	      i++;
-	      if(i == len) {
+	      if(i >= len) {
 		len = read(desc->fd, buf, BUFSIZE);
 		i = 0;
 	      }
@@ -1582,7 +2199,7 @@ int getXRef(struct doc_descriptor *desc) {
 		strncpy(tmp + t, buf + i, 1);
 		t++;
 		i++;
-		if(i == len) {
+		if(i >= len) {
 		  len = read(desc->fd, buf, BUFSIZE);
 		  i = 0;
 		}
@@ -1594,7 +2211,7 @@ int getXRef(struct doc_descriptor *desc) {
 	} else {
 	  /* unique filter */
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1610,7 +2227,7 @@ int getXRef(struct doc_descriptor *desc) {
 	    strncpy(tmp + t, buf + i, 1);
 	    t++;
 	    i++;
-	    if(i == len) {
+	    if(i >= len) {
 	      len = read(desc->fd, buf, BUFSIZE);
 	      i = 0;
 	    }
@@ -1627,7 +2244,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1640,7 +2257,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1656,13 +2273,13 @@ int getXRef(struct doc_descriptor *desc) {
 	/* get first entry number */
 	while(strncmp(buf + i, "[", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
 	}
 	i++;
-	if(i == len) {
+	if(i >= len) {
 	  len = read(desc->fd, buf, BUFSIZE);
 	  i = 0;
 	}
@@ -1670,7 +2287,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1684,7 +2301,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1697,7 +2314,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1711,7 +2328,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1726,13 +2343,13 @@ int getXRef(struct doc_descriptor *desc) {
 	/* get first field size */
 	while(strncmp(buf + i, "[", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
 	}
 	i++;
-	if(i == len) {
+	if(i >= len) {
 	  len = read(desc->fd, buf, BUFSIZE);
 	  i = 0;
 	}
@@ -1740,7 +2357,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1753,7 +2370,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1766,7 +2383,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1779,7 +2396,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1792,7 +2409,7 @@ int getXRef(struct doc_descriptor *desc) {
 	      !strncmp(buf + i, "\x0A", 1) ||
 	      !strncmp(buf + i, "\x0D", 1)) {
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -1806,7 +2423,7 @@ int getXRef(struct doc_descriptor *desc) {
 	  strncpy(tmp + t, buf + i, 1);
 	  t++;
 	  i++;
-	  if(i == len) {
+	  if(i >= len) {
 	    len = read(desc->fd, buf, BUFSIZE);
 	    i = 0;
 	  }
@@ -2021,4 +2638,93 @@ int freeXRefStruct(struct xref *xref) {
     free(tmp);
   }
   return 0;
+}
+
+
+int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
+  struct pdfState *state = ((struct pdfState *)(desc->myState));
+  z_stream z;
+  char srcbuf[BUFSIZE], outbuf[BUFSIZE];
+  int len, i, len2, finish, size;
+
+  /* object is not inside a stream object */
+  if(state->objectStream == -1) {
+    return read(desc->fd, buf, buflen);
+  }
+
+  /* object is inside a stream object */
+  state->length = state->streamlength;
+  gotoRef(desc, state->objectStream);
+  len = read(desc->fd, srcbuf, BUFSIZE);
+  for(i = 0; strncmp(srcbuf + i, "stream", 6); i++) {}
+  i += 6;
+  i += getNextLine(srcbuf + i, len - i);
+  lseek(desc->fd, i - len, SEEK_CUR);
+  i = 0;
+
+  /* prepare stream inflating */
+  z.zalloc = Z_NULL;
+  z.zfree = Z_NULL;
+  z.next_in = srcbuf;
+  z.avail_in = (state->length < BUFSIZE) ? state->length : BUFSIZE;
+  inflateInit(&z);
+  z.avail_in = 0;
+  finish = 0;
+  size = buflen;
+
+  /* find object */
+  do {
+    if(z.avail_in == 0) {
+      len = read(desc->fd, srcbuf, BUFSIZE);
+      if(len == 0) {
+	inflateEnd(&z);
+	return 0;
+      }
+      state->length -= len;
+      z.avail_in = len;
+      z.next_in = srcbuf;
+    }
+    z.avail_out = BUFSIZE;
+    z.next_out = outbuf;
+    finish = inflate(&z, Z_SYNC_FLUSH);
+
+  } while(!finish && z.total_out <= state->offsetInStream + state->first);
+
+  i = state->offsetInStream + state->first - z.total_out + BUFSIZE - z.avail_out;
+  if(i > BUFSIZE - z.avail_out) {
+    inflateEnd(&z);
+    return 0;
+  }
+
+  /* copy output in buf */
+  len2 = 0;
+  strncpy(buf + len2, outbuf + i,
+	  (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size);
+  len2 += (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size;
+  size -= (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size;
+
+  while(!finish && len2 < buflen) {
+    if(z.avail_in == 0) {
+      len = read(desc->fd, srcbuf, BUFSIZE);
+      if(len == 0) {
+	inflateEnd(&z);
+	return len2;
+      }
+      state->length -= len;
+      z.avail_in = len;
+      z.next_in = srcbuf;
+    }
+    z.avail_out = BUFSIZE;
+    z.next_out = outbuf;
+    finish = inflate(&z, Z_SYNC_FLUSH);
+
+    strncpy(buf + len2, outbuf,
+	    (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size);
+    len2 += (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size;
+    size -= (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size;
+  }
+  state->offsetInStream += len2;
+  inflateEnd(&z);
+
+  return len2;
 }
