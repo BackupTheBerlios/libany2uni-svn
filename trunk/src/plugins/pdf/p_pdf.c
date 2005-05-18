@@ -97,6 +97,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
 
   if (len > 0) {
+
     (desc->nb_par_read) += 1;
 
     /* converting to UTF-16 */

@@ -103,9 +103,12 @@ struct pdfState {
   struct encodingTable *encodings; /* font encodings structure */
   char    currentFont[10];         /* current font (for encoding) */
   struct xref *XRef;               /* cross reference table */
-  int objectStream;                /* stream containing the desired object */
-  int offsetInStream;              /* offset of the object in the stream */
-  int first;                       /* offset to first object in stream */
+  int     objectStream;            /* stream containing the desired object */
+  int     offsetInStream;          /* offset of the object in the stream */
+  int     first;                   /* offset to first object in stream */
+  int     predictor;               /* decode parameter for current stream */
+  int     columns;                 /* decode parameter for current stream */
+  char    prediction[10];          /* prediction for filter parameters */
 };
 
 

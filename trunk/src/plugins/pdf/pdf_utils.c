@@ -26,7 +26,6 @@
 #include "p_pdf.h"
 #include <math.h>
 
-int tr = 0;
 int getText(struct doc_descriptor *desc, char *out, int size) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   char buf[BUFSIZE];
@@ -1501,10 +1500,13 @@ int gotoRef(struct doc_descriptor *desc, int ref){
   struct pdfState *state = (struct pdfState *)(desc->myState);
   struct xref *XRef;
   struct pdffilter *tmpfilter, *filter = NULL;
-  char buf[BUFSIZE], buf2[BUFSIZE], tmp[20];
-  int len, len2, i, j, v, l, found;
+  char buf[BUFSIZE], buf2[BUFSIZE], tmp[20], rest[10];
+  int len, len2, i, j, v, l, found, restlen;
   int nbopened;
   z_stream z;
+  char prediction[10];
+
+  memset(state->prediction, '\x00', 10);
 
   /* finding reference in table */
   XRef = state->XRef;
@@ -1529,6 +1531,7 @@ int gotoRef(struct doc_descriptor *desc, int ref){
   } else {
     /* object is in object stream */
     state->objectStream = XRef->object_stream;
+    state->predictor = state->columns = 1;
 
     /* position on object stream */
     for(XRef = state->XRef; XRef != NULL &&
@@ -1593,6 +1596,36 @@ int gotoRef(struct doc_descriptor *desc, int ref){
 	  i++;
 	}
 	state->first = getNumber(buf + i);
+      }
+
+      /* get decodeParms */
+      if(!strncmp(buf + i, "/DecodeParms", 12)) {
+	for( ; strncmp(buf + i, "<<", 2); i++) {}
+	i += 2;
+	for( ; strncmp(buf + i, ">>", 2); i++) {
+
+	  if(!strncmp(buf + i, "/Columns", 8)) {
+	    i += 8;
+	    for( ; !strncmp(buf + i, " ", 1) ||
+		   !strncmp(buf + i, "\x0A", 1) ||
+		   !strncmp(buf + i, "\x0D", 1); i++) {}
+	    state->columns = getNumber(buf + i);
+	  }
+	  if(!strncmp(buf + i, "/Predictor", 10)) {
+	    i += 10;
+	    for( ; !strncmp(buf + i, " ", 1) ||
+		   !strncmp(buf + i, "\x0A", 1) ||
+		   !strncmp(buf + i, "\x0D", 1); i++) {}
+	    state->predictor = getNumber(buf + i);
+	  }
+
+	}
+	if(i >= len - 12) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	  i = 0;
+	}
+	i += 2;
       }
 
       /* get filters */
@@ -1671,6 +1704,23 @@ int gotoRef(struct doc_descriptor *desc, int ref){
     inflateInit(&z);
     inflate(&z, Z_SYNC_FLUSH);
     len2 = BUFSIZE - z.avail_out;
+
+    /* reverse prediction filter */
+    memset(rest, '\x00', 7);
+    restlen = 0;
+    if(state->predictor >= 10) {
+      len = 0;
+      for(i = 1; i < BUFSIZE - z.avail_out - state->columns + 1; i += state->columns + 1) {
+	for(j = 0; j < state->columns; j++) {
+	  buf[len] = (prediction[j] + buf2[i + j]);
+	  len++;
+	}
+	memcpy(prediction, buf + len - state->columns, state->columns);
+      }
+      memcpy(rest, buf2 + i - 1, BUFSIZE - z.avail_out  - i + 1);
+      restlen = BUFSIZE - z.avail_out  - i + 1;
+      memcpy(buf2, buf, len);
+    }
 
     for(i = 0; !found && i < len2; ) {
       if(getNumber(buf2 + i) == ref) {
@@ -1938,14 +1988,15 @@ int getXRef(struct doc_descriptor *desc) {
   struct pdffilter *tmpfilter;
   int len, i, t, len2, v;
   int xinf, xsup, nbopened, inflateFinished, restlen;
-  char buf[BUFSIZE], tmp[20], rest[7];
+  char buf[BUFSIZE], tmp[20], rest[10];
   char *decoded, *decoded2;
-  int size, length, prev;
+  int size, length, prev, cols, predictor;
   long int dictionaryBegin, currentObject;
   int field1Size, field2Size, field3Size;
-  char prediction[5];
+  char prediction[10];
   z_stream z;
 
+  cols = predictor = 1;
   len = read(desc->fd, buf, BUFSIZE);
 
   /* case of a cross reference table */
@@ -2267,6 +2318,73 @@ int getXRef(struct doc_descriptor *desc) {
 
       }
 
+      /* get decodeParms */
+      if(!strncmp(buf + i, "/DecodeParms", 12)) {
+	for( ; strncmp(buf + i, "<<", 2); i++) {
+	  if(i >= len - 12) {
+	    strncpy(buf, buf + i, len - i);
+	    len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	    i = 0;
+	  }
+	}
+	if(i >= len - 12) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	  i = 0;
+	}
+	i += 2;
+	for( ; strncmp(buf + i, ">>", 2); i++) {
+	  if(i >= len - 12) {
+	    strncpy(buf, buf + i, len - i);
+	    len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	    i = 0;
+	  }
+	  if(!strncmp(buf + i, "/Columns", 8)) {
+	    i += 8;
+	    if(i >= len - 12) {
+	      strncpy(buf, buf + i, len - i);
+	      len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	      i = 0;
+	    }
+	    for( ; !strncmp(buf + i, " ", 1) ||
+		   !strncmp(buf + i, "\x0A", 1) ||
+		   !strncmp(buf + i, "\x0D", 1); i++) {
+	      if(i >= len - 12) {
+		strncpy(buf, buf + i, len - i);
+		len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+		i = 0;
+	      }
+	    }
+	    cols = getNumber(buf + i);
+	  }
+	  if(!strncmp(buf + i, "/Predictor", 10)) {
+	    i += 10;
+	    if(i >= len - 12) {
+	      strncpy(buf, buf + i, len - i);
+	      len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	      i = 0;
+	    }
+	    for( ; !strncmp(buf + i, " ", 1) ||
+		   !strncmp(buf + i, "\x0A", 1) ||
+		   !strncmp(buf + i, "\x0D", 1); i++) {
+	      if(i >= len - 12) {
+		strncpy(buf, buf + i, len - i);
+		len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+		i = 0;
+	      }
+	    }
+	    predictor = getNumber(buf + i);
+	  }
+
+	}
+	if(i >= len - 12) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
+	  i = 0;
+	}
+	i += 2;
+      }
+
       /* get index */
       if(!strncmp(buf + i, "/Index", 6)) {
 
@@ -2433,7 +2551,7 @@ int getXRef(struct doc_descriptor *desc) {
       }
 
       i++;
-      if(i >= len - 7) {
+      if(i >= len - 12) {
 	strncpy(buf, buf + i, len - i);
 	len = read(desc->fd, buf + len - i, BUFSIZE -len + i) + len - i;
 	i = 0;
@@ -2467,8 +2585,8 @@ int getXRef(struct doc_descriptor *desc) {
     lseek(desc->fd, i - len, SEEK_CUR);
 
     /* apply filters */
-    memset(prediction, '\x00', 5);
-    memset(rest, '\x00', 7);
+    memset(prediction, '\x00', cols);
+    memset(rest, '\x00', cols + 2);
     restlen = 0;
     inflateFinished = 0;
     currentObject = xinf;
@@ -2491,22 +2609,25 @@ int getXRef(struct doc_descriptor *desc) {
       memcpy(decoded, rest, restlen);
       z.next_out = decoded + restlen;
       inflateFinished = inflate(&z, Z_SYNC_FLUSH);
+      len2 = 6000 - z.avail_out;
 
       /* reverse prediction filter */
-      decoded2 = (char *) malloc(5000);
-      len2 = 0;
-      for(i = 1; i < 6000 - z.avail_out - 4; i += 6) {
-	for(t = 0; t < 5; t++) {
-	  decoded2[len2] = (prediction[t] + decoded[i + t]);
-	  len2++;
+      if(predictor >= 10) {
+	decoded2 = (char *) malloc(5000);
+	len2 = 0;
+	for(i = 1; i < 6000 - z.avail_out - cols + 1; i += cols + 1) {
+	  for(t = 0; t < cols; t++) {
+	    decoded2[len2] = (prediction[t] + decoded[i + t]);
+	    len2++;
+	  }
+	  memcpy(prediction, decoded2 + len2 - cols, cols);
 	}
-	memcpy(prediction, decoded2 + len2 - 5, 5);
+	memcpy(rest, decoded + i - 1, 6000 - z.avail_out  - i + 1);
+	restlen = 6000 - z.avail_out  - i + 1;
+	memcpy(decoded, decoded2, len2);
+	free(decoded2);
       }
-      memcpy(rest, decoded + i - 1, 6000 - z.avail_out  - i + 1);
-      restlen = 6000 - z.avail_out  - i + 1;
-      memcpy(decoded, decoded2, len2);
-      free(decoded2);
-      
+
       /* procede xref table */
       if(state->XRef == NULL) {
 	XRef = (struct xref *) malloc(sizeof(struct xref));
@@ -2644,8 +2765,9 @@ int freeXRefStruct(struct xref *xref) {
 int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   z_stream z;
-  char srcbuf[BUFSIZE], outbuf[BUFSIZE];
-  int len, i, len2, finish, size;
+  char srcbuf[BUFSIZE], outbuf[BUFSIZE], buf2[BUFSIZE+4], rest[10];
+  int len, i, len2, j, finish, size, restlen, total;
+  int ascii85, flate, destlen;
 
   /* object is not inside a stream object */
   if(state->objectStream == -1) {
@@ -2654,13 +2776,58 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
 
   /* object is inside a stream object */
   state->length = state->streamlength;
+  ascii85 = 0;
+  flate = 0;
   gotoRef(desc, state->objectStream);
   len = read(desc->fd, srcbuf, BUFSIZE);
-  for(i = 0; strncmp(srcbuf + i, "stream", 6); i++) {}
+
+  /* get filters */
+  for(i = 0; strncmp(srcbuf + i, "/Filter", 7); i++) {}
+
+  if(!strncmp(srcbuf + i, "/Filter", 7)) {
+    i += 7;
+    for( ; !strncmp(srcbuf + i, " ", 1) ||
+	   !strncmp(srcbuf + i, "\x0A", 1) ||
+	   !strncmp(srcbuf + i, "\x0D", 1); i++) {}
+    
+    if(!strncmp(srcbuf + i, "[", 1)) {
+
+      /* multiple filters */
+      i++;
+      while(strncmp(srcbuf + i, "]", 1)) {
+	if(!strncmp(srcbuf + i, "/", 1)) {
+	  i++;
+	  if(identifyFilter(srcbuf + i) == flateDecode) {
+	    flate = 1;
+	  }
+	  if(identifyFilter(srcbuf + i) == ascii85Decode) {
+	    if(!flate) {
+	      ascii85 = 1;
+	    } else {
+	      ascii85 = 2;
+	    }
+	  }
+	}
+	i++;
+      }
+
+    } else {
+
+      /* unique filter */
+      i++;
+      if(identifyFilter(srcbuf + i) == ascii85Decode) {
+	ascii85 = 1;
+      }
+    }
+  }
+
+  /* go to stream beginning */
+  for( ; strncmp(srcbuf + i, "stream", 6); i++) {}
   i += 6;
   i += getNextLine(srcbuf + i, len - i);
   lseek(desc->fd, i - len, SEEK_CUR);
   i = 0;
+  len2 = 0;
 
   /* prepare stream inflating */
   z.zalloc = Z_NULL;
@@ -2671,11 +2838,18 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   z.avail_in = 0;
   finish = 0;
   size = buflen;
-
+  restlen = 0;
+  total = 0;
+  
   /* find object */
   do {
     if(z.avail_in == 0) {
       len = read(desc->fd, srcbuf, BUFSIZE);
+      if(ascii85 == 1) {
+	lseek(desc->fd, -decodeASCII85(srcbuf, len, outbuf, &destlen), SEEK_CUR);
+	strncpy(srcbuf, outbuf, destlen);
+	len = destlen;
+      }
       if(len == 0) {
 	inflateEnd(&z);
 	return 0;
@@ -2687,27 +2861,61 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
     z.avail_out = BUFSIZE;
     z.next_out = outbuf;
     finish = inflate(&z, Z_SYNC_FLUSH);
+    if(ascii85 == 2) {
+      strncpy(buf2 + restlen, outbuf, BUFSIZE - z.avail_out);
+      restlen = decodeASCII85(buf2, BUFSIZE - z.avail_out + restlen, buf, &destlen);
+      strncpy(buf2, outbuf + BUFSIZE - z.avail_out - restlen, restlen);
+      strncpy(outbuf, buf, destlen);
+    } else {
+      destlen = BUFSIZE - z.avail_out;
+    }
+    total += destlen;
+        
+  } while(!finish && total <= state->offsetInStream + state->first);
 
-  } while(!finish && z.total_out <= state->offsetInStream + state->first);
-
-  i = state->offsetInStream + state->first - z.total_out + BUFSIZE - z.avail_out;
-  if(i > BUFSIZE - z.avail_out) {
+  i = state->offsetInStream + state->first - total + destlen;
+  if(i > destlen) {
     inflateEnd(&z);
     return 0;
   }
-
+  
   /* copy output in buf */
   len2 = 0;
   strncpy(buf + len2, outbuf + i,
-	  (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size);
-  len2 += (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size;
-  size -= (BUFSIZE - z.avail_out - i < size) ? BUFSIZE - z.avail_out - i : size;
-
+	  (destlen - i < size) ? destlen - i : size);
+  len2 += (destlen - i < size) ? destlen - i : size;
+  size -= (destlen - i < size) ? destlen - i : size;
+  
   while(!finish && len2 < buflen) {
     if(z.avail_in == 0) {
       len = read(desc->fd, srcbuf, BUFSIZE);
+      if(ascii85 == 1) {
+	lseek(desc->fd, -decodeASCII85(srcbuf, len, outbuf, &destlen), SEEK_CUR);
+	strncpy(srcbuf, outbuf, destlen);
+	len = destlen;
+      }
       if(len == 0) {
 	inflateEnd(&z);
+
+	/* reverse prediction filter */
+	if(len2 && state->predictor >= 10) {
+	  memset(rest, '\x00', state->columns + 2);
+	  restlen = 0;
+	  len = 0;
+	  for(i = 1; i < len2 - state->columns + 1; i += state->columns + 1) {
+	    for(j = 0; j < state->columns; j++) {
+	      buf2[len] = (state->prediction[j] + ((char *)(buf))[i + j]);
+	      len++;
+	    }
+	    memcpy(state->prediction, buf2 + len - state->columns, state->columns);
+	  }
+	  memcpy(rest, buf + i - 1, len2  - i + 1);
+	  restlen = len2  - i + 1;
+	  memcpy(buf, buf2, len);
+	  len2 = len;
+	}
+
+	state->offsetInStream += len2;
 	return len2;
       }
       state->length -= len;
@@ -2717,14 +2925,77 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
     z.avail_out = BUFSIZE;
     z.next_out = outbuf;
     finish = inflate(&z, Z_SYNC_FLUSH);
+    destlen = (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size;
 
-    strncpy(buf + len2, outbuf,
-	    (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size);
-    len2 += (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size;
-    size -= (BUFSIZE - z.avail_out < size) ? BUFSIZE - z.avail_out : size;
+    if(ascii85 == 2) {
+      strncpy(buf2 + restlen, outbuf, BUFSIZE - z.avail_out);
+      strncpy(rest, outbuf + BUFSIZE - z.avail_out - 5, 5);
+      restlen = decodeASCII85(buf2, BUFSIZE - z.avail_out + restlen, outbuf, &destlen);
+      strncpy(buf2, rest + 5 - restlen, restlen);
+      if(destlen > size) {
+	destlen = size;
+      }
+    }
+    strncpy(buf + len2, outbuf, destlen);
+    len2 += destlen;
+    size -= destlen;
   }
-  state->offsetInStream += len2;
   inflateEnd(&z);
+  
+  /* reverse prediction filter */
+  if(state->predictor >= 10) {
+    memset(rest, '\x00', state->columns + 2);
+    restlen = 0;
+    len = 0;
+    for(i = 1; i < len2 - state->columns + 1; i += state->columns + 1) {
+      for(j = 0; j < state->columns; j++) {
+	buf2[len] = (state->prediction[j] + ((char *)(buf))[i + j]);
+	len++;
+      }
+      memcpy(state->prediction, buf2 + len - state->columns, state->columns);
+    }
+    memcpy(rest, buf + i - 1, len2  - i + 1);
+    restlen = len2  - i + 1;
+    memcpy(buf, buf2, len);
+    len2 = len;
+  }
+
+  state->offsetInStream += len2;
 
   return len2;
+}
+
+
+int decodeASCII85(char *src, int srclen, char *dest, int *destlen){
+  char _85[5], ascii[4];
+  int val, i, j;
+
+  i = 0;
+  *destlen = 0;
+
+  while(i < srclen - 4) {
+
+    if(!strncmp(src + i, "\x7A", 1)) {
+      memcpy(dest + *destlen, "\x00\x00\x00\x00", 4);
+      *destlen += 4;
+      i++;
+    } else if(src[i]>=33 && src[i]<=117) {
+      val = 0;
+      strncpy(_85, src + i, 5);
+      i += 5;
+      for(j = 0; j < 5; j++) {
+	val += (_85[4 - j] - 33) * pow(85, j);
+      }
+      for(j = 0; j < 4; j++) {
+	ascii[3 - j] =  val % 256;
+	val /= 256;
+      }
+      memcpy(dest + *destlen, ascii, 4);
+      *destlen += 4;
+    } else {
+      i++;
+    }
+  }
+
+  return srclen - i;
 }

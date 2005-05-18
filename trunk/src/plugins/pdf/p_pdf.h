@@ -179,18 +179,6 @@ int getEncodings(struct doc_descriptor *desc);
 
 
 /**
- * to apply a filter to a stream and copy the result in desc->myState->stream.
- *
- * \param desc the document descriptor
- * \param filter the filter to apply
- * \param buf source buffer
- * \param buflen size of source buffer
- * \return an error code
- */
-int applyFilter(struct doc_descriptor *desc, enum filter filter, char *buf, int buflen);
-
-
-/**
  * to get XRef table
  *
  * \param desc the document descriptor
@@ -225,5 +213,17 @@ int freeFilterStruct(struct pdffilter *filter);
  */
 int freeXRefStruct(struct xref *xref);
 
+
+/**
+ * to decode ASCII85 encoded data
+ * updates the destination length automatically
+ *
+ * \param src input data
+ * \param srclen length of input data
+ * \param dest target buffer for decoded data
+ * \param destlen pointer to length of target buffer
+ * \return the number of bytes that have not been decoded (at the end of src)
+ */
+int decodeASCII85(char *src, int srclen, char *dest, int *destlen);
 
 #endif /* __P_LATEX_H__ */
