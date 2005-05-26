@@ -39,20 +39,14 @@ int initPlugin(struct doc_descriptor *desc) {
 
   desc->fd = open(desc->filename, O_RDONLY);
   desc->myState = (struct pdfState *) malloc(sizeof(struct pdfState));
+  desc->nb_pages_read = 0;
+  desc->pageCount = 1;
 
   ((struct pdfState *)(desc->myState))->version = version(desc->fd);
   if(((struct pdfState *)(desc->myState))->version < 0) {
     fprintf(stderr, "not PDF file\n");
     return -2;
   }
-/*  if(((struct pdfState *)(desc->myState))->version >= 5) {
-    fprintf(stderr, "pdf > 1.5 not yet implemented\n");
-    return -2;
-  }
-*/
-  if (initReader(desc) < 0) {
-    return -2;
-  };
 
   /* initialize converter */
   err = U_ZERO_ERROR;
@@ -61,6 +55,11 @@ int initPlugin(struct doc_descriptor *desc) {
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
+
+  if (initReader(desc) < 0) {
+    return -2;
+  };
+
   
   return OK;
 }
@@ -71,6 +70,11 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
+  if(((struct pdfState *)(desc->myState))->glyphfile != -1) {
+    close(((struct pdfState *)(desc->myState))->glyphfile);
+  }
+  freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
+  freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
   freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
   freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
   free(desc->myState);
@@ -86,33 +90,15 @@ int closePlugin(struct doc_descriptor *desc) {
  * reads the next paragraph and converts to UTF-16
  */
 int p_read_content(struct doc_descriptor *desc, UChar *buf) {
-  char *outputbuf;
   int len;
-  UErrorCode err;
 
   len = 0;
-  outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
-  len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
+  len = getText(desc, buf, 2*INTERNAL_BUFSIZE);
 
   if (len > 0) {
-
     (desc->nb_par_read) += 1;
-
-    /* converting to UTF-16 */
-    err = U_ZERO_ERROR;
-    len = 2 * ucnv_toUChars(desc->conv, buf, 2*INTERNAL_BUFSIZE,
-			    outputbuf, strlen(outputbuf), &err);
-    if (U_FAILURE(err)) {
-      fprintf(stderr, "Unable to convert buffer\n");
-      return ERR_ICU;
-    }
-
-  }
-
-  if(outputbuf != NULL) {
-    free(outputbuf);
   }
 
   return len;
@@ -148,8 +134,9 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
  * return : an indicator of the progression in the processing
  */
 int p_getProgression(struct doc_descriptor *desc) {
-  if (desc->size > 0) {
+  if(desc->pageCount > 0) {
+    return 100 * desc->nb_pages_read / desc->pageCount;
+  } else {
     return 0;
   }
-  return 0;
 }

@@ -42,7 +42,7 @@
  * \param size the output buffer max size
  * \return the size of out
  */
-int getText(struct doc_descriptor *desc, char *out, int size);
+int getText(struct doc_descriptor *desc, UChar *out, int size);
 
 
 /**
@@ -53,7 +53,7 @@ int getText(struct doc_descriptor *desc, char *out, int size);
  * \param size the output buffer max size
  * \return the size of out
  */
-int procedeStream(struct doc_descriptor *desc, char *out, int size);
+int procedeStream(struct doc_descriptor *desc, UChar *out, int size);
 
 
 /**
@@ -179,6 +179,54 @@ int getEncodings(struct doc_descriptor *desc);
 
 
 /**
+ * to get infos from a font dictionary
+ *
+ * \param desc the document descriptor
+ * \param buf buffer containing the beginning of the dictionary
+ * \param buflen length of buffer
+ * \param encoding the target structure
+ * \param encodingref target array of references to indirect encoding
+ * \param nbencodrefs target size of nbencodrefs
+ * \return an error code
+ */
+int readFontDictionary(struct doc_descriptor *desc, char *buf, int buflen, struct encodingTable *encoding, int *encodingref, int *nbencodrefs);
+
+
+/**
+ * to get infos from a font encoding object
+ *
+ * \param desc the document descriptor
+ * \param buf buffer containing the beginning of the object
+ * \param buflen length of buffer
+ * \param encoding the target structure
+ * \return an error code
+ */
+int readEncodingObject(struct doc_descriptor *desc, char *buf, int buflen, struct encodingTable *encoding);
+
+
+/**
+ * to map a char code to its UTF-16 value
+ *
+ * \param desc the document descriptor
+ * \param charcode the char code to map
+ * \param out target buffer
+ * \param l pointer to size of buf
+ * \return an error code
+ */
+int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l);
+
+
+/**
+ * to read a ToUnicode CMap and fill a the CMap list
+ *
+ * \param desc the document descriptor
+ * \param ToUnicode reference to the CMap object
+ * \return an error code
+ */
+int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode);
+
+
+/**
  * to get XRef table
  *
  * \param desc the document descriptor
@@ -212,6 +260,24 @@ int freeFilterStruct(struct pdffilter *filter);
  * \return an error code
  */
 int freeXRefStruct(struct xref *xref);
+
+
+/**
+ * to free a CMapList struct and all its dependent CMap structs
+ *
+ * \param cmaplist the CMapList to free
+ * \return an error code
+ */
+int freeCMapList(struct CMapList *cmaplist);
+
+
+/**
+ * to free an encoding table struct
+ *
+ * \param table the encoding table to free
+ * \return an error code
+ */
+int freeEncodingTable(struct encodingTable *table);
 
 
 /**

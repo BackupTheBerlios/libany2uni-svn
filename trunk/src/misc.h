@@ -101,7 +101,7 @@ struct pdfState {
   int     length;                  /* size of compressed stream */
   int     inString;                /* 1 if cursor is inside a string object */
   struct encodingTable *encodings; /* font encodings structure */
-  char    currentFont[10];         /* current font (for encoding) */
+  struct encodingTable *currentEncoding; /* current encoding */
   struct xref *XRef;               /* cross reference table */
   int     objectStream;            /* stream containing the desired object */
   int     offsetInStream;          /* offset of the object in the stream */
@@ -109,6 +109,11 @@ struct pdfState {
   int     predictor;               /* decode parameter for current stream */
   int     columns;                 /* decode parameter for current stream */
   char    prediction[10];          /* prediction for filter parameters */
+  int     glyphfile;               /* file used for charset conversion */
+  int     last;                    /* last code (used for 2 bytes encoding) */
+  int     last_available;          /* indicates if 'last' must be used */
+  struct CMapList *cmaplist;       /* list of ToUnicodeCMpas */
+  int     newPage;                 /* indicator for page change */
 };
 
 
@@ -152,7 +157,41 @@ struct pdffilter {
 struct encodingTable {
   char *fontName;             /* name of font */
   char *encoding;             /* font encoding */
+  int  ToUnicode;             /* ToUnicode stream reference (-1 if none) */
+  struct diffTable *diff;     /* differences table */
   struct encodingTable *next; /* next font */
+};
+
+
+/**
+ * differences table for pdf altered encodings
+ */
+struct diffTable {
+  int  code;              /* glyph code */
+  char *name;             /* character name */
+  struct diffTable *next; /* next entry */
+};
+
+
+/**
+ * linked list of ToUnicodeCmaps
+ */
+struct CMapList {
+  int    ref;                 /* CMap reference number */
+  struct ToUnicodeCMap *cmap; /* first entry of CMap structure */
+  struct CMapList *next;      /* next CMap */
+};
+
+
+/**
+ * ToUnicode CMap structure
+ */
+struct ToUnicodeCMap {
+  int   codelength;            /* code length in bytes */
+  int   code;                  /* code */
+  UChar *value;                /* utf-16 value */
+  int   vallength;
+  struct ToUnicodeCMap *next;  /* next entry in CMap */
 };
 
 
@@ -179,7 +218,9 @@ struct doc_descriptor {
   int     format;              /* the file format
 				  (see section File Formats of this file) */
   void    *plugin_handle;      /* the plugin used by the document */
-  int     nb_par_read;         /* number of paragraphs already read */
+  int     nb_par_read;         /* number of paragraphs ( or text block) already read */
+  int     nb_pages_read;       /* number of pages already read (if known) */
+  int     pageCount;           /* total number of pages (if known) */
   XML_Parser parser;           /* expat sax parser */
   void    *myState;            /* state structure
 				  (type depends on the plugin)*/

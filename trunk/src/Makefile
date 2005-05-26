@@ -1,6 +1,6 @@
 CC= gcc
-LDFLAGS= -g -Wall -ansi
-CFLAGS= -g -Wall -ansi -fno-strict-aliasing
+LDFLAGS= -O3 -Wall -ansi
+CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
@@ -37,6 +37,7 @@ install:
 	; done
 	cp $(EXEC) /usr/lib/
 	cp *.h /usr/include/libany2uni/
+	cp plugins/pdf/glyphlist.txt /usr/lib/libany2uni/
 
 clean:
 	@for DIR in $(PLUGINSDIR); do \

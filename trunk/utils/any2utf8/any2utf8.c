@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 
     /* read next paragraph */
     while (read_content(&d, ubuf) >= 0) {
-      
+
       /* get the needed size for output string */
       u_strToUTF8(NULL, 0, &size, ubuf, u_strlen(ubuf), &err);
       /* allocate output string with 1 more character for termination */
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
       /* printing result to standard output */
       printf("%s ", out);
 
-      memcpy(ubuf, "\0", 1);
+      memcpy(ubuf, "\0\0", 2);
       free(out);    
     }
   } else if (mode == METADATA) {
