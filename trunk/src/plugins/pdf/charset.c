@@ -24,6 +24,7 @@
  */
 
 #include "p_pdf.h"
+#include "unicode/uchar.h"
 
 int getEncodings(struct doc_descriptor *desc) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
@@ -621,8 +622,10 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
 	   (cmap->codelength == 1 + state->last_available && cmap->code != v));
 	cmap = cmap->next) {}
     if(cmap != NULL) {
-      memcpy(out+(*l)/2, cmap->value, cmap->vallength);
-      *l += cmap->vallength;
+      if(u_isdefined(cmap->value[0])) {
+	memcpy(out+(*l)/2, cmap->value, cmap->vallength);
+	*l += cmap->vallength;
+      }
       state->last = 0;
       state->last_available = 0;
       return OK;
@@ -722,8 +725,10 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
 	    v += value[2*i+1] - 48;
 	  }
 	}
-	memcpy(out+(*l)/2, &v, 2);
-	*l += 2;
+	if(u_isdefined(v)) {
+	  memcpy(out+(*l)/2, &v, 2);
+	  *l += 2;
+	}
 	return OK;
       }
     }
@@ -735,7 +740,7 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
   sprintf(src, "%c", charcode);
   strncpy(src + 1, "\0", 1);
   err = U_ZERO_ERROR;
-  v = ucnv_toUChars(desc->conv, dest, 4,
+  ucnv_toUChars(desc->conv, dest, 4,
 		src, 1, &err);
   if (U_FAILURE(err)) {
     fprintf(stderr, "Unable to convert buffer\n");

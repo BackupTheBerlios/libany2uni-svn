@@ -46,6 +46,16 @@ int getText(struct doc_descriptor *desc, UChar *out, int size);
 
 
 /**
+ * to get metadata from the Info dictionary
+ *
+ * \param desc the document descriptor
+ * \param infoRef reference number of the Info dictionary
+ * \return an error code
+ */
+int getMetadata(struct doc_descriptor *desc, int infoRef);
+
+
+/**
  * get next paragraph from current stream
  *
  * \param desc the document descriptor

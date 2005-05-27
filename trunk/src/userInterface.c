@@ -139,7 +139,6 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
   case PDFDOC :
     handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
-/*    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/pdf/p_pdf.so", RTLD_LAZY);*/
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;

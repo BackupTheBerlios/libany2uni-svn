@@ -106,7 +106,6 @@ int main(int argc, char *argv[]) {
        all present metadata are found */
     while (read_content(&d, ubuf) >= 0) {}
 
-
     first = 1;
     /* printing metadata to standard output */
     while(read_meta(&d, &meta) != NO_MORE_META) {

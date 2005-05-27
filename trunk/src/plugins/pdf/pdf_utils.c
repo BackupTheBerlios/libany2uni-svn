@@ -1301,6 +1301,7 @@ int initReader(struct doc_descriptor *desc) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   char buf[BUFSIZE], tmp[20], keyword[20];
   int len, i, found, t;
+  int infoRef, nbopened;
 
   state->currentStream = state->currentOffset = 0;
   state->glyphfile = -1;
@@ -1315,6 +1316,7 @@ int initReader(struct doc_descriptor *desc) {
   state->encodings = NULL;
   state->filter = NULL;
   state->XRef = NULL;
+  infoRef = -1;
 
   /* looking for 'startxref' */
   lseek(desc->fd, -40, SEEK_END);
@@ -1351,19 +1353,66 @@ int initReader(struct doc_descriptor *desc) {
   len = read(desc->fd, buf, BUFSIZE);
   
   /* looking for Root in trailer or stream dictionary */
+  for(i = 0 ; strncmp(buf + i, "<<", 2); i++) {
+    if(i >= len - 2) {
+      strncpy(buf, buf + i, len - i);
+      len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+  }
+  i += 2;
+  if(i >= len - 2) {
+    strncpy(buf, buf + i, len - i);
+    len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
   found = 0;
-  for( i = 0; i < len - 4 && !found; i++) {
+  nbopened = 0;
+  for( ; nbopened || strncmp(buf + i, ">>", 2); i++) {
+    if(i >= len - 5) {
+      strncpy(buf, buf + i, len - i);
+      len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+    if(!strncmp(buf + i, "<<", 2)) {
+      nbopened++;
+    } else if(!strncmp(buf + i, ">>", 2)) {
+      nbopened--;
+    }
     if(!strncmp(buf + i, "/", 1)) {
       i++;
       getKeyword(buf + i, keyword);
       if (!strncmp(keyword, "Root", 4)) {
 	found = 1;
+	/* getting Root (catalog) reference */
+	i += 4;
+	if(i >= len - 10) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
+	}
+	while (!strncmp(buf + i, " ", 1) ||
+	       !strncmp(buf + i, "\x0A", 1) ||
+	       !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	}
+	state->catalogRef = getNumber(buf + i);
+
+      } else if(!strncmp(keyword, "Info", 4)) {
+	/* getting Info dictionary reference */
+	i += 4;
+	if(i >= len - 10) {
+	  strncpy(buf, buf + i, len - i);
+	  len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
+	  i = 0;
+	}
+	while (!strncmp(buf + i, " ", 1) ||
+	       !strncmp(buf + i, "\x0A", 1) ||
+	       !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	}
+	infoRef = getNumber(buf + i);
       }
-    }
-    if(i >= len - 5) {
-      strncpy(buf, buf + i + 1, 4);
-      len = read(desc->fd, buf + 4, BUFSIZE - 4) + 4;
-      i = 0;
     }
   }
   if(!found) {
@@ -1371,14 +1420,11 @@ int initReader(struct doc_descriptor *desc) {
     return -2;
   }
 
-  /* getting Root (catalog) reference */
-  i += 4;
-  while (!strncmp(buf + i, " ", 1) ||
-	 !strncmp(buf + i, "\x0A", 1) ||
-	 !strncmp(buf + i, "\x0D", 1)) {
-    i++;
+  /* get metadata */
+  if(infoRef != -1) {
+    getMetadata(desc, infoRef);
   }
-  state->catalogRef = getNumber(buf + i);
+
 
   /* going to catalog */
   gotoRef(desc, state->catalogRef);
@@ -1789,6 +1835,8 @@ int getKeyword(char *input, char *output){
   for (i = 0; i < 20 && strncmp(input + i, " ", 1)
 	 && strncmp(input + i, "\x0A", 1)
 	 && strncmp(input + i, "\x0D", 1)
+	 && strncmp(input + i, "(", 1)
+	 && strncmp(input + i, "<", 1)
 	 && strncmp(input + i, "\\", 1); i++) {
     strncpy(output + i, input + i, 1);
   }
@@ -2877,6 +2925,167 @@ int freeEncodingTable(struct encodingTable *table) {
       free(tmpTable->encoding);
     }
     free(tmpTable);
+  }
+
+  return OK;
+}
+
+int getMetadata(struct doc_descriptor *desc, int infoRef) {
+  struct meta *meta = NULL;
+  char buf[BUFSIZE], name[20], value[128], tmp[1];
+  int len, i, k;
+  int v, j = 0;
+  UErrorCode err;
+  UChar *uvalue, *uname;
+  int valuelen, namelen;
+
+  /* goto Info dictionary */
+  gotoRef(desc, infoRef);
+  len = readObject(desc, buf, BUFSIZE);
+  for(i = 0; strncmp(buf + i, "<<", 2); i++) {
+    if(i >= len - 2) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+  }
+  i += 2;
+  if(i >= len - 2) {
+    strncpy(buf, buf + i, len - i);
+    len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+    i = 0;
+  }
+  for( ; strncmp(buf + i, ">>", 2); i++) {
+
+    if(i >= len - 14) {
+      strncpy(buf, buf + i, len - i);
+      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+      i = 0;
+    }
+    if(!strncmp(buf + i, "/", 1)) {
+      i++;
+      getKeyword(buf + i, name);
+      if(strncmp(name, "Trapped", 7)) {
+	memset(value, '\x00', 128);
+	i += strlen(name);
+	while(!strncmp(buf + i, " ", 1) ||
+	      !strncmp(buf + i, "\x0A", 1) ||
+	      !strncmp(buf + i, "\x0D", 1)) {
+	  i++;
+	  if(i >= len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	}
+	if(!strncmp(buf + i, "(", 1)) {
+	  /* standard text string */
+	  i++;
+	  if(i >= len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+	  for(j = 0 ; j < 127 && strncmp(buf + i, ")", 1); j++) {
+	    if(i >= len) {
+	      len = read(desc->fd, buf, BUFSIZE);
+	      i = 0;
+	    }
+	    if(!strncmp(buf + i, "\\", 1)) {
+	      i++;
+	      if(i >= len) {
+		len = read(desc->fd, buf, BUFSIZE);
+		i = 0;
+	      }
+	    }
+	    strncpy(value + j, buf + i, 1);
+	    i++;
+	  }
+	  strncpy(value + j, "\0", 1);
+
+	} else if(!strncmp(buf + i, "<", 1)) {
+	  /* hex string */
+	  i++;
+	  if(i >= len) {
+	    len = read(desc->fd, buf, BUFSIZE);
+	    i = 0;
+	  }
+
+	  for(j = 0; j < 127 && strncmp(buf + i, ">", 1); ) {
+	    v = 0;
+	    for(k = 0; k < 2; k++) {
+	      strncpy(tmp, buf + i, 1);
+	      v *= 16;
+	      if(!strncmp(tmp, "a", 1) || !strncmp(tmp, "A", 1)) {
+		v += 10;
+	      } else if(!strncmp(tmp, "b", 1) || !strncmp(tmp, "B", 1)) {
+		v += 11;
+	      } else if(!strncmp(tmp, "c", 1) || !strncmp(tmp, "C", 1)) {
+		v += 12;
+	      } else if(!strncmp(tmp, "d", 1) || !strncmp(tmp, "D", 1)) {
+		v += 13;
+	      } else if(!strncmp(tmp, "e", 1) || !strncmp(tmp, "E", 1)) {
+		v += 14;
+	      } else if(!strncmp(tmp, "f", 1) || !strncmp(tmp, "F", 1)) {
+		v += 15;
+	      } else if(!strncmp(tmp, ">", 1)) {
+		/* nothing */
+	      } else {
+		v += atoi(tmp);
+	      }
+	      if(strncmp(tmp, ">", 1)) {
+		i++;
+		if(i >= len - 2) {
+		  strncpy(buf, buf + i, len - i);
+		  len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+		  i = 0;
+		}
+	      }
+	    }
+
+	    memcpy(value + j, &v, 1);
+	    j++;
+	  }
+	  strncpy(value + j, "\0", 1);
+	}
+
+	if(strlen(value)){
+
+	  /* convert name and value to UTF-16 */
+	  uname = (UChar *) malloc(2*strlen(name) + 1);
+	  err = U_ZERO_ERROR;
+	  namelen = ucnv_toUChars(desc->conv, uname, 2*strlen(name)+1,
+				      name, strlen(name), &err);
+	  if(value[0] == -2) {
+	    uvalue = (UChar *) malloc(j);
+	    memcpy(uvalue, value+2, j - 2);
+	    memcpy(uvalue + j - 2, "\x00\x00", 2);
+	    valuelen = j/2 - 1;
+	  } else {
+	    uvalue = (UChar *) malloc(2*strlen(value) + 1);
+	    err = U_ZERO_ERROR;
+	    valuelen = ucnv_toUChars(desc->conv, uvalue, 2*strlen(value)+1,
+				     value, strlen(value), &err);
+	  }
+	  if(valuelen) {
+	    /* create new metadata structure in the list */
+	    if(desc->meta == NULL) {
+	      desc->meta = (struct meta *) malloc(sizeof(struct meta));
+	      meta = desc->meta;
+	    } else {
+	      meta->next = (struct meta *) malloc(sizeof(struct meta));
+	      meta = meta->next;
+	    }
+	    meta->next = NULL;
+	    meta->name = uname;
+	    meta->name_length = namelen;
+	    meta->value = uvalue;
+	    meta->value_length = valuelen;
+	  } else {
+	    free(uname);
+	    free(uvalue);
+	  }
+	}
+      }
+    }
   }
 
   return OK;
