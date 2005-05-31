@@ -118,6 +118,29 @@ struct pdfState {
 
 
 /**
+ * RTF encodings
+ */
+enum rtfEncoding {
+  ansi,
+  mac,
+  ibm437,
+  ibm850,
+};
+
+
+/**
+ * state structure for rtf reader
+ */
+struct rtfState {
+  char buf[2048];                  /* buffer for file content */
+  int  len;                        /* buffer length */
+  int  cursor;                     /* current offset in buffer */
+  int  isMeta;                     /* 1 when we are parsing the info group */
+  enum rtfEncoding  mainEncoding;  /* code for main encoding */
+};
+
+
+/**
  * cross reference structure (linked list)
  */
 struct xref {

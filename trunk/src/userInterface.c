@@ -146,6 +146,16 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
 
+  case RTFDOC :
+/*    handle = dlopen("/usr/lib/libany2uni/p_rtf.so", RTLD_LAZY);*/
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/rtf/p_rtf.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_rtf.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
   default :
     break;
   }
@@ -298,7 +308,7 @@ int main(int argc, char *argv[]) {
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
-  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);*/
-
+  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/1);
+*/
   return 0;
 }

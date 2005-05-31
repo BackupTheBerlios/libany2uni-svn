@@ -6,7 +6,8 @@ SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
 LIBS= -licui18n -ldl -lz
 PLUGINSDIR = plugins/abiword plugins/HTML plugins/koffice plugins/latex \
-	plugins/openoffice plugins/pdf plugins/scribus plugins/word plugins/XML
+	plugins/openoffice plugins/pdf plugins/scribus plugins/word plugins/XML \
+	plugins/rtf
 
 all: $(EXEC)
 
