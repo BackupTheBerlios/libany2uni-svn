@@ -147,8 +147,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case RTFDOC :
-/*    handle = dlopen("/usr/lib/libany2uni/p_rtf.so", RTLD_LAZY);*/
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/rtf/p_rtf.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_rtf.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_rtf.so\n");
       return ERR_DLOPEN;
