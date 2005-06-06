@@ -1,13 +1,13 @@
 CC= gcc
-LDFLAGS= -O3 -Wall -ansi
-CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing
+LDFLAGS= -g -Wall -ansi
+CFLAGS= -g -Wall -ansi -fno-strict-aliasing
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
 LIBS= -licui18n -ldl -lz
 PLUGINSDIR = plugins/abiword plugins/HTML plugins/koffice plugins/latex \
 	plugins/openoffice plugins/pdf plugins/scribus plugins/word plugins/XML \
-	plugins/rtf
+	plugins/rtf plugins/excel
 
 all: $(EXEC)
 

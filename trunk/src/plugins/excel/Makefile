@@ -1,7 +1,7 @@
 CC= gcc
-CFLAGS= -O3 -Wall -ansi
-LDFLAGS= -O3 -Wall -ansi
-EXEC= p_word.so
+CFLAGS= -g -Wall -ansi
+LDFLAGS= -g -Wall -ansi
+EXEC= p_excel.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
 LIBS= -licui18n
@@ -11,9 +11,9 @@ all: $(EXEC)
 $(EXEC): $(OBJ)
 	$(CC) -o $@ -shared $^ $(LDFLAGS) $(LIBS)
 
-p_word.o: p_word.h
+p_excel.o: p_excel.h
 
-word_utils.o: p_word.h
+excel_utils.o: p_excel.h
 
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)

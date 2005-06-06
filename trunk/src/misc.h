@@ -30,6 +30,8 @@
 #include "plugins/koffice/unzip.h"
 #include <sys/types.h>
 #include <unicode/utypes.h>
+#include <unicode/ustring.h>
+#include <unicode/uchar.h>
 #include <unicode/ucnv.h>
 #include <expat.h>
 
@@ -137,6 +139,37 @@ struct rtfState {
   int  cursor;                     /* current offset in buffer */
   int  isMeta;                     /* 1 when we are parsing the info group */
   enum rtfEncoding  mainEncoding;  /* code for main encoding */
+};
+
+
+/**
+ * BBD structure
+ */
+struct BBD {
+  int bbd;           /* bbd number */
+  int nextbbd;      /* next bbd number */
+  struct BBD *next;  /* next structure in list */
+};
+
+
+/**
+ * state structure for OLE files (excel, powerpoint, ...)
+ */
+struct oleState {
+  char  buf[516];      /* buffer for reading */
+  int   len;           /* buffer length */
+  int   cur;           /* cursor in buffer */
+  int   nbOfBBD;       /* number of Big Block Depot */
+  struct BBD *BBD;     /* Big Block Depot linked list */
+  int   rootStart;     /* first BB of root */
+  int   sbdStart;      /* first BB of small blocks depot (SBD) */
+  int   bbdList;       /* array of BBD */
+  int   currentBBlock; /* current big block in workbook */
+  int   currentSBlock; /* current small block in workbook */
+  int   SBFileStart;   /* small blocks file start block */
+  int   bigSize;       /* true if size > 0x1000 */
+  int   sstSize;       /* number of strings in Shared String Ttable */
+  UChar **SST;         /* Shared String Table */
 };
 
 

@@ -155,6 +155,15 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
 
+  case MSEXCEL:
+    handle = dlopen("/usr/lib/libany2uni/p_excel.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_excel.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
   default :
     break;
   }
@@ -261,8 +270,7 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 /*  
-    gettimeofday(&t1, NULL);
-  
+  gettimeofday(&t1, NULL);
   
   for (i = 0; i<20; i++) {
 */

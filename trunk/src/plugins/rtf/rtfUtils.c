@@ -138,6 +138,8 @@ int doKeyword(struct doc_descriptor *desc, UChar *out, int size, int *l) {
   char keyword[32], cparam[8], tmp[20];
   int i, j, iparam, v;
 
+  j = 0;
+  iparam = 0;
   if(strncmp(state->buf + state->cursor, "\\", 1)) {
     fprintf(stderr, "Not a keyword, operation aborted\n");
     return -2;
