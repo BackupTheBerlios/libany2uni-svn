@@ -43,7 +43,7 @@ extern FILE *fdopen(int fildes, const char *mode);
 int initPlugin(struct doc_descriptor *desc) {
   UErrorCode err;
 
-  desc->myState = (struct ParserState *) malloc(sizeof(struct ParserState));
+  desc->myState = (struct oleState *) malloc(sizeof(struct oleState));
 
   desc->fd = open(desc->filename, O_RDONLY);
 
@@ -73,10 +73,10 @@ int closePlugin(struct doc_descriptor *desc) {
   int i;
 
   for(i = 0; i < state->sstSize; i++) {
-/*    free(state->SST[i]);*/
+/*    free((UChar*) (state->SST[i]));*/
   }
-  free(state->SST);
-  free(desc->myState);
+/*  free((UChar **) state->SST);*/
+  free((struct oleState *) state);
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

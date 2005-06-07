@@ -1,6 +1,6 @@
 CC= gcc
-LDFLAGS= -g -Wall -ansi
-CFLAGS= -g -Wall -ansi -fno-strict-aliasing
+LDFLAGS= -O3 -Wall -ansi
+CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
