@@ -450,7 +450,7 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   } else {
     /* converting to UTF-16 */
     err = U_ZERO_ERROR;
-    ucnv_toUChars(desc->conv, *target, 2 * (j + 1), str, j + 1, &err);
+    ucnv_toUChars(desc->conv, *target, 2 * j, str, j, &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
       free((char *) str);
@@ -504,5 +504,16 @@ int getBBD(struct doc_descriptor *desc) {
 
   }
 
+  return OK;
+}
+
+int freeBBD(struct BBD *BBD) {
+  struct BBD *tmpBBD;
+
+  while(BBD != NULL) {
+    tmpBBD = BBD;
+    BBD = BBD->next;
+    free(tmpBBD);
+  }
   return OK;
 }

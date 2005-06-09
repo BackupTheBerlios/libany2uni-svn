@@ -72,11 +72,12 @@ int closePlugin(struct doc_descriptor *desc) {
   struct oleState* state = (struct oleState *)(desc->myState);
   int i;
 
+  freeBBD(state->BBD);
   for(i = 0; i < state->sstSize; i++) {
-/*    free((UChar*) (state->SST[i]));*/
+    free(state->SST[i]);
   }
-/*  free((UChar **) state->SST);*/
-  free((struct oleState *) state);
+  free(state->SST);
+  free(state);
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

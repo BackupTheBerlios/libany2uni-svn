@@ -165,8 +165,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MSPPT:
-/*    handle = dlopen("/usr/lib/libany2uni/p_powerpoint.so", RTLD_LAZY);*/
-    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/powerpoint/p_powerpoint.so", RTLD_LAZY);
+    handle = dlopen("/usr/lib/libany2uni/p_powerpoint.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_powerpoint.so\n");
       return ERR_DLOPEN;
@@ -208,6 +207,7 @@ int closeDocument(struct doc_descriptor *desc) {
 
   /* unloading the plugin */
   if (dlclose(desc->plugin_handle)) {
+    fprintf(stderr, "Unable to close plugin\n");
     return ERR_DLCLOSE;
   }
 
@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
-  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/1);
+  printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);
 
   return 0;
 }

@@ -85,4 +85,10 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target);
 int getBBD(struct doc_descriptor *desc);
 
 
+/**
+ * to free a BBD linked list
+ */
+int freeBBD(struct BBD *BBD);
+
+
 #endif /* __P_EXCEL_H__ */
