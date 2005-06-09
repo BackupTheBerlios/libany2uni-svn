@@ -164,6 +164,16 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
 
+  case MSPPT:
+/*    handle = dlopen("/usr/lib/libany2uni/p_powerpoint.so", RTLD_LAZY);*/
+    handle = dlopen("/home/gwendal/libany2uni/trunk/src/plugins/powerpoint/p_powerpoint.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_powerpoint.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
   default :
     break;
   }
@@ -269,53 +279,53 @@ int main(int argc, char *argv[]) {
     printf("usage : ./test <doc_file>\n");
     exit(0);
   }
-/*  
+  
   gettimeofday(&t1, NULL);
   
   for (i = 0; i<20; i++) {
-*/
+
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
   }
-
+/*
   if (openDocument("../../format_abiword/test2.abw", &d2)) {
     printf("error openDocument2\n");
     exit(0);
   }
 
   fd = fopen("output", "w");
-
+*/
   e = read_content(&d, buf);
   while(e >= 0) {
-    fwrite(buf, e, 1, fd);
+/*    fwrite(buf, e, 1, fd);
     fwrite("  ", 2, 1, fd);
-    f = read_content(&d2, buf);
+    f = read_content(&d2, buf);*/
     e = read_content(&d, buf);
   }
 
   while (read_meta(&d, &meta) >=0) {
-    fwrite(meta.name, 2*meta.name_length, 1, fd);
-    fwrite(meta.value, 2*meta.value_length, 1, fd);
+/*    fwrite(meta.name, 2*meta.name_length, 1, fd);
+    fwrite(meta.value, 2*meta.value_length, 1, fd);*/
   }
 
-
+/*
   fclose(fd);
 
   if (closeDocument(&d2)) {
     printf("error closeDocument2\n");
   }
-
+*/
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-/*
+
   }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
   printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/1);
-*/
+
   return 0;
 }
