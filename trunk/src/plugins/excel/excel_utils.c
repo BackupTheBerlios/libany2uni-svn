@@ -159,6 +159,7 @@ int initOLE(struct doc_descriptor *desc) {
   /* if the file is contained in SBDs : get sbd */
   if(desc->size < 0x1000) {
     state->bigSize = 0;
+    state->currentSBlock = 0;
     lseek(desc->fd,
 	  (state->SBFileStart + 1) * BBSIZE + state->currentSBlock * SBSIZE,
 	  SEEK_SET);
@@ -432,7 +433,7 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   }
   memset(str + j, '\0', charlen);
 
-  *target = (UChar*) malloc(2 * (j+1));
+  *target = (UChar*) malloc(4 * j + 2);
   if(*target == NULL) {
     fprintf(stderr, "Memory allocation error : malloc failed\n");
     return -2;
@@ -450,7 +451,7 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   } else {
     /* converting to UTF-16 */
     err = U_ZERO_ERROR;
-    ucnv_toUChars(desc->conv, *target, 2 * j, str, j, &err);
+    ucnv_toUChars(desc->conv, *target, 4 * j, str, j, &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
       free((char *) str);

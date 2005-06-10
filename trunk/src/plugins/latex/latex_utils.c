@@ -230,10 +230,10 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
   char inbuf[BUFSIZE];
   char val[50];
   enum latex_tag tag;
-
-  len = read(desc->fd, inbuf, BUFSIZE);
   struct meta *meta;
   UErrorCode err;
+
+  len = read(desc->fd, inbuf, BUFSIZE);
 
   l = 0;
   isNote = 0;
@@ -728,11 +728,12 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    meta->next = (struct meta *) malloc(sizeof(struct meta));
 	    meta = meta->next;
 	  }
-	  meta->name = (UChar *) malloc(10);
+	  meta->next = NULL;
+	  meta->name = (UChar *) malloc(12);
 
 	  /* filling name field */
 	  meta->name_length = 2 * ucnv_toUChars(desc->conv, meta->name ,
-					    10, "title", 5, &err);
+					    12, "title", 5, &err);
 	  meta->name_length = u_strlen(meta->name);
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
@@ -760,9 +761,9 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 
 	  /* converting to utf-16 and filling value field */
 	  err = U_ZERO_ERROR;
-	  meta->value = (UChar *) malloc(2*strlen(val) + 1);
+	  meta->value = (UChar *) malloc(2*strlen(val) + 2);
 	  meta->value_length = 2 * ucnv_toUChars(desc->conv,
-						 meta->value ,2*strlen(val) + 1,
+						 meta->value ,2*strlen(val) + 2,
 						 val, strlen(val), &err);
 	  meta->value_length = u_strlen(meta->value);
 
@@ -785,11 +786,12 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    }
 	    meta = meta->next;
 	  }
-	  meta->name = (UChar *) malloc(12);
+	  meta->next = NULL;
+	  meta->name = (UChar *) malloc(14);
 
 	  /* filling name field */
 	  meta->name_length = 2 * ucnv_toUChars(desc->conv, meta->name ,
-					    12, "author", 6, &err);
+					    14, "author", 6, &err);
 	  meta->name_length = u_strlen(meta->name);
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
@@ -821,9 +823,9 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 
 	  /* converting to utf-16 and filling value field */
 	  err = U_ZERO_ERROR;
-	  meta->value = (UChar *) malloc(2*strlen(val) + 1);
+	  meta->value = (UChar *) malloc(2*strlen(val) + 2);
 	  meta->value_length = 2 * ucnv_toUChars(desc->conv,
-						 meta->value ,2*strlen(val) + 1,
+						 meta->value ,2*strlen(val) + 2,
 						 val, strlen(val), &err);
 	  meta->value_length = u_strlen(meta->value);
 
@@ -847,11 +849,12 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	      }
 	      meta = meta->next;
 	    }
-	    meta->name = (UChar *) malloc(8);
+	    meta->next = NULL;
+	    meta->name = (UChar *) malloc(10);
 	    
 	    /* filling name field */
 	    meta->name_length = 2 * ucnv_toUChars(desc->conv, meta->name ,
-						  8, "date", 4, &err);
+						  10, "date", 4, &err);
 	    meta->name_length = u_strlen(meta->name);
 	    if (U_FAILURE(err)) {
 	      printf("error icu\n");
@@ -879,9 +882,9 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    
 	    /* converting to utf-16 and filling value field */
 	    err = U_ZERO_ERROR;
-	    meta->value = (UChar *) malloc(2*strlen(val) + 1);
+	    meta->value = (UChar *) malloc(2*strlen(val) + 2);
 	    meta->value_length = 2 * ucnv_toUChars(desc->conv,
-						   meta->value ,2*strlen(val) + 1,
+						   meta->value ,2*strlen(val) + 2,
 						   val, strlen(val), &err);
 	    meta->value_length = u_strlen(meta->value);
 	    if (U_FAILURE(err)) {

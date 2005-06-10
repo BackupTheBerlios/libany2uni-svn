@@ -238,7 +238,8 @@ int parse(struct doc_descriptor* desc, char *out) {
  * reads the next paragraph and converts to UTF-16
  */
 int p_read_content(struct doc_descriptor *desc, UChar *buf) {
-  char *outputbuf;
+  char *outputbuf, *src;
+  UChar *dest;
   int len;
   UErrorCode err;
 
@@ -254,8 +255,11 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 
     /* converting to UTF-16 */
     err = U_ZERO_ERROR;
-    len = 2 * ucnv_toUChars(desc->conv, buf, 2*INTERNAL_BUFSIZE,
-			    outputbuf, strlen(outputbuf), &err);
+    dest = buf;
+    src = outputbuf;
+    ucnv_toUnicode(desc->conv, &dest, dest + 2*INTERNAL_BUFSIZE,
+		   &src, &outputbuf[strlen(outputbuf)], NULL, 0, &err);
+    len = 2*(dest - buf);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
@@ -278,6 +282,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
  * reads the next metadata available 
  */
 int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
+  struct meta *pre;
 
   if(desc->meta == NULL) {
     return NO_MORE_META;
@@ -291,7 +296,9 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
 
     /* switching to next metadata in descriptor
      (the current one is lost) */
+    pre = desc->meta;
     desc->meta = desc->meta->next;
+    free(pre);
   }
   return OK;
 }

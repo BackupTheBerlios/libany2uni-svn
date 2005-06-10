@@ -3050,9 +3050,9 @@ int getMetadata(struct doc_descriptor *desc, int infoRef) {
 	if(strlen(value)){
 
 	  /* convert name and value to UTF-16 */
-	  uname = (UChar *) malloc(2*strlen(name) + 1);
+	  uname = (UChar *) malloc(2*strlen(name) + 2);
 	  err = U_ZERO_ERROR;
-	  namelen = ucnv_toUChars(desc->conv, uname, 2*strlen(name)+1,
+	  namelen = ucnv_toUChars(desc->conv, uname, 2*strlen(name)+2,
 				      name, strlen(name), &err);
 	  if(value[0] == -2) {
 	    uvalue = (UChar *) malloc(j);
@@ -3060,9 +3060,9 @@ int getMetadata(struct doc_descriptor *desc, int infoRef) {
 	    memcpy(uvalue + j - 2, "\x00\x00", 2);
 	    valuelen = j/2 - 1;
 	  } else {
-	    uvalue = (UChar *) malloc(2*strlen(value) + 1);
+	    uvalue = (UChar *) malloc(2*strlen(value) + 2);
 	    err = U_ZERO_ERROR;
-	    valuelen = ucnv_toUChars(desc->conv, uvalue, 2*strlen(value)+1,
+	    valuelen = ucnv_toUChars(desc->conv, uvalue, 2*strlen(value)+2,
 				     value, strlen(value), &err);
 	  }
 	  if(valuelen) {

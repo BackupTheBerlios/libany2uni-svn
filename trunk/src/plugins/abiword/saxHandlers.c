@@ -47,9 +47,9 @@ void XMLCALL characters(void *user_data, const char *ch, int len) {
 
     /*converting value to UTF-16 */
     err = U_ZERO_ERROR;
-    uvalue = malloc(2*strlen(ch2)+1);
+    uvalue = malloc(2*strlen(ch2)+2);
     valuelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				 uvalue, 2*strlen(ch2)+1, ch2, strlen(ch2), &err);
+				 uvalue, 2*strlen(ch2)+2, ch2, strlen(ch2), &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
     }
@@ -102,7 +102,7 @@ void XMLCALL characters(void *user_data, const char *ch, int len) {
       if (((struct ParserState *)user_data)->chlen + strlen(ch2) >= INTERNAL_BUFSIZE) {
 	strncpy(ch2 + INTERNAL_BUFSIZE - ((struct ParserState *)user_data)->chlen, "\0", 1);
       }
-      sprintf(((struct ParserState *)user_data)->ch + ((struct ParserState *)user_data)->chlen, "%s", ch2);
+      memcpy(((struct ParserState *)user_data)->ch + ((struct ParserState *)user_data)->chlen, ch2, strlen(ch2));
       ((struct ParserState *)user_data)->chlen += strlen(ch2);
 
       free(ch2);
@@ -131,9 +131,9 @@ void XMLCALL startElement(void *user_data, const char *name, const char **attrs)
 
     /*converting name to UTF-16 */
     err = U_ZERO_ERROR;
-    uname = (UChar *) malloc(2*strlen(ch)+1);
+    uname = (UChar *) malloc(2*strlen(ch)+2);
     namelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				uname, 2*strlen(ch)+1, ch, strlen(ch), &err);
+				uname, 2*strlen(ch)+2, ch, strlen(ch), &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
     }

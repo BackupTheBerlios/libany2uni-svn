@@ -138,6 +138,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
  * reads the next metadata available 
  */
 int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
+  struct meta *pre;
+
   if(desc->meta == NULL) {
     return NO_MORE_META;
   } else {
@@ -150,7 +152,9 @@ int p_read_meta(struct doc_descriptor *desc, struct meta *meta) {
 
     /* switching to next metadata in descriptor
      (the current one is lost) */
+    pre = desc->meta;
     desc->meta = desc->meta->next;
+    free(pre);
   }
   return OK;
 }

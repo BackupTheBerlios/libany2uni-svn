@@ -99,9 +99,9 @@ void XMLCALL metaCharacters(void *user_data, const char *ch, int len) {
     
     /*converting value to UTF-16 */
     err = U_ZERO_ERROR;
-    uvalue = malloc(2*strlen(ch2)+1);
+    uvalue = malloc(2*strlen(ch2)+2);
     valuelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				 uvalue, 2*strlen(ch2)+1, ch2, strlen(ch2), &err);
+				 uvalue, 2*strlen(ch2)+2, ch2, strlen(ch2), &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
     }
@@ -141,11 +141,11 @@ void XMLCALL metaStartElement(void *user_data, const char *name,  const char **a
     strncpy(ch, name + 3, strlen(name) - 3);
     strncpy(ch + strlen(name) - 3, "\0", 1);
 
-    /*converting value to UTF-16 */
+    /*converting name to UTF-16 */
     err = U_ZERO_ERROR;
-    uname = malloc(2*strlen(ch)+1);
+    uname = malloc(2*strlen(ch)+2);
     namelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				uname, 2*strlen(ch)+1, ch, strlen(ch), &err);
+				uname, 2*strlen(ch)+2, ch, strlen(ch), &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
     }

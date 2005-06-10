@@ -40,7 +40,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   void *handle = NULL;
   int (*initPlugin)(struct doc_descriptor *);
   struct stat st;
-  
+
   /* filling some desc fields */
   desc->filename = filename;
   desc->nb_par_read = 0;
@@ -177,7 +177,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
   }
 
-  /* initiaization */
+  /* initialization */
   *(void **)(&initPlugin) = dlsym(handle, "initPlugin");
   if (*(void **)(&initPlugin) == NULL ) {
     return ERR_DLSYM;
@@ -264,7 +264,7 @@ int getProgression(struct doc_descriptor *desc) {
 }
 
 /* used for testing
- * during the initial developpement
+ * during the initial development
  */
 int main(int argc, char *argv[]) {
   struct doc_descriptor d, d2;
@@ -279,53 +279,62 @@ int main(int argc, char *argv[]) {
     printf("usage : ./test <doc_file>\n");
     exit(0);
   }
-  
+/*  
   gettimeofday(&t1, NULL);
   
   for (i = 0; i<20; i++) {
-
+*/
   if (openDocument(argv[1], &d)) {
     printf("error openDocument\n");
     exit(0);
   }
-/*
+
   if (openDocument("../../format_abiword/test2.abw", &d2)) {
     printf("error openDocument2\n");
     exit(0);
   }
 
   fd = fopen("output", "w");
-*/
+
   e = read_content(&d, buf);
   while(e >= 0) {
-/*    fwrite(buf, e, 1, fd);
+    fwrite(buf, e, 1, fd);
     fwrite("  ", 2, 1, fd);
-    f = read_content(&d2, buf);*/
+    f = read_content(&d2, buf);
     e = read_content(&d, buf);
   }
 
+  meta.name = meta.value = NULL;
   while (read_meta(&d, &meta) >=0) {
-/*    fwrite(meta.name, 2*meta.name_length, 1, fd);
-    fwrite(meta.value, 2*meta.value_length, 1, fd);*/
+    fwrite(meta.name, 2*meta.name_length, 1, fd);
+    fwrite(meta.value, 2*meta.value_length, 1, fd);
+    if(meta.name != NULL) {
+      free(meta.name);
+      meta.name = NULL;
+    }
+    if(meta.value != NULL) {
+      free(meta.value);
+      meta.value = NULL;
+    }
   }
 
-/*
+
   fclose(fd);
 
   if (closeDocument(&d2)) {
     printf("error closeDocument2\n");
   }
-*/
+
   if (closeDocument(&d)) {
     printf("error closeDocument\n");
   }
-
+/*
   }
   gettimeofday(&t2, NULL);
 
   printf("%d:%d\n", t1.tv_sec, t1.tv_usec);
   printf("%d:%d\n", t2.tv_sec, t2.tv_usec);
   printf("%d\n", (1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec)/20);
-
+*/
   return 0;
 }

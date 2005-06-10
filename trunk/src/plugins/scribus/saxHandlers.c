@@ -39,7 +39,7 @@ void XMLCALL startElement(void *user_data, const char *name, const char **attrs)
   UErrorCode err;
   int namelen, valuelen, gotonext;
   UChar *uname, *uvalue;
-  struct meta *meta;
+  struct meta *meta = NULL;
 
   /* text items */
   if (strcmp(name, "ITEXT") == 0) {
@@ -80,11 +80,6 @@ void XMLCALL startElement(void *user_data, const char *name, const char **attrs)
     
     gotonext = 0;
 
-    /* initializing new metadata structure */
-    ((struct ParserState *)user_data)->meta = (struct meta *) malloc(sizeof(struct meta)); 
-    ((struct ParserState *)user_data)->meta->next = NULL;
-    meta = ((struct ParserState *)user_data)->meta;
-
     for (i = 0; attrs[i] != NULL; i += 2) {
 
       /* finding relevant metadata */
@@ -98,32 +93,39 @@ void XMLCALL startElement(void *user_data, const char *name, const char **attrs)
 	  if (gotonext) {
 	    meta->next = (struct meta *) malloc(sizeof(struct meta));
 	    meta = meta->next;
-	  }
-	  
+	  } else {
+
+	    /* initializing new metadata structure */
+	    ((struct ParserState *)user_data)->meta =
+	      (struct meta *) malloc(sizeof(struct meta)); 
+	    ((struct ParserState *)user_data)->meta->next = NULL;
+	    meta = ((struct ParserState *)user_data)->meta;      	    
+	  }	
+  
 	  /* copying name */
-	  ch = (char *) malloc(strlen(attrs[i]));
+	  ch = (char *) malloc(strlen(attrs[i])+1);
 	  strncpy(ch, attrs[i], strlen(attrs[i]));
 	  strncpy(ch + strlen(attrs[i]), "\0", 1);
 
 	  /*converting name to UTF-16 */
 	  err = U_ZERO_ERROR;
-	  uname = (UChar *) malloc(2*strlen(ch)+1);
+	  uname = (UChar *) malloc(2*strlen(ch) + 2);
 	  namelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				      uname, 2*strlen(ch)+1, ch, strlen(ch), &err);
+				      uname, 2*strlen(ch) + 2, ch, strlen(ch), &err);
 	  if (U_FAILURE(err)) {
 	    fprintf(stderr, "Unable to convert buffer\n");
 	  }
 	  
 	  /* copying value */
-	  ch2 = (char *) malloc(strlen(attrs[i+1]));
+	  ch2 = (char *) malloc(strlen(attrs[i+1])+1);
 	  strncpy(ch2, attrs[i+1], strlen(attrs[i+1]));
 	  strncpy(ch2 + strlen(attrs[i+1]), "\0", 1);
 
 	  /*converting value to UTF-16 */
 	  err = U_ZERO_ERROR;
-	  uvalue = (UChar *) malloc(2*strlen(ch2)+1);
+	  uvalue = (UChar *) malloc(2*strlen(ch2) + 2);
 	  valuelen = 2 * ucnv_toUChars(((struct ParserState *)user_data)->cnv,
-				       uvalue, 2*strlen(ch2)+1, ch2, strlen(ch2), &err);
+				       uvalue, 2*strlen(ch2), ch2, strlen(ch2), &err);
 	  if (U_FAILURE(err)) {
 	    fprintf(stderr, "Unable to convert buffer\n");
 	  }
