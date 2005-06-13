@@ -45,6 +45,9 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   desc->filename = filename;
   desc->nb_par_read = 0;
   desc->meta = NULL;
+  desc->nb_par_read = 0;
+  desc->nb_pages_read = 0;
+  desc->pageCount = -1;
 
   desc->fd = open(filename, O_RDONLY);
   fstat(desc->fd, &st);

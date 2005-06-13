@@ -216,6 +216,9 @@ int read_next(struct doc_descriptor *desc, UChar *out, int size) {
       }
 
     } else if(recordInstance != 0x000F) {
+      if(recordInstance == 0x03F3) {
+	desc->nb_pages_read++;
+      }
       state->readerState = outOfString;
       state->cur += recordlen;
       state->nbBytesRead += recordlen;

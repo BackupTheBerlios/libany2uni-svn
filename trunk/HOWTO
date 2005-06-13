@@ -32,7 +32,10 @@ before using the structure again.
 
 At any time, you can use the getProgression() function toget an idea of your
 progression in reading the document. It returns the approximative percentage
-of the document that have been read.
+of the document that have been read. You can also consult the doc_descriptor
+structure to get the current paragraph number and, if they are known, the
+current page number and the totatl number of pages. The total number of pages will be equal to -1 if it is unknown, and the current page will remain 0.
+
 
 3° Close the document:
 ----------------------
