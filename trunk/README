@@ -1,0 +1,24 @@
+LIBANY2UNI : README
+-------------------
+
+
+Description:
+------------
+LIBANY2UNI is a LGPL project (see COPYING.LIB). It is a C library to extract
+text and metadata from various documents without any formatting. The produced
+text is encoded using Unicode UTF-16.
+This library shall be useful for search engines, text processing, ...
+
+
+Project page:
+-------------
+https://developer.berlios.de/projects/libany2uni/
+
+If you have any feedback or if you find a bug, please send me an e-mail
+at ged22 at users.berlios.de .
+
+For installation guidance, see INSTALL.
+For help about using the library, see HOWTO.
+If you need to write your own plugin, see doc/How_To_Create_New_Plugins.
+On the SVN repository, you can find conception documentation in OpenOffice
+Writer format.

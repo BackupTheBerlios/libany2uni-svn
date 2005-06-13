@@ -24,7 +24,7 @@
  * usage : ./any2utf8 <document>
  */
 
-#include "../../src/userInterface.h"
+#include <libany2uni/userInterface.h>
 #include <unicode/utypes.h>
 #include <unicode/ustring.h>
 #include <string.h>

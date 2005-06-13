@@ -27,7 +27,7 @@
 #define __MISC_H__
 
 #include <stdio.h>
-#include "plugins/koffice/unzip.h"
+#include <libany2uni/unzip.h>
 #include <sys/types.h>
 #include <unicode/utypes.h>
 #include <unicode/ustring.h>

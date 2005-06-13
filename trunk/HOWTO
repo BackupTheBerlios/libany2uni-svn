@@ -1,0 +1,44 @@
+HOW TO USE LIBANY2UNI
+---------------------
+
+Please read INSTALL for installation guidance.
+
+To use the library, you have to include <userInterface.h>.
+Then, compile using -lany2uni.
+There are 3 steps when you use the library to extract text from a document :
+
+1° Open the document:
+---------------------
+This is made by calling the function openDocument(). You have to declare
+a doc_descriptor structure first.
+You can open several documents at the same time (use one doc_descriptor for
+each document).
+
+2° Read the document:
+---------------------
+You must initialize a destination buffer large enough to receive the
+UTF-16 data (2 * INTERNAL_BUFSIZE, which is 10000 bytes). You can then use the
+read-content() function which get the next paragraph of the document (or if
+the paragraph is to long, it will only read enough text to fill the target
+buffer. The next call to read_content() will get the rest of the paragraph).
+Read_content() returns the number of 2 bytes characters in the target buffer.
+When the end of document is reached, it return NO_MORE_DATA (-1).
+
+You can use the read_meta() function to get metadata. However, for some
+document formats, you are not sure to get all metadata before reading the
+whole document. Metadata will be stored in a meta structure that you have
+initialized before. Do not forget to free its content (name and value)
+before using the structure again.
+
+At any time, you can use the getProgression() function toget an idea of your
+progression in reading the document. It returns the approximative percentage
+of the document that have been read.
+
+3° Close the document:
+----------------------
+When you have finished with the document, you have to close it using the
+closeDocument() function. You must do it in order to free all allocated
+resources and to unload the plugin.
+
+
+
