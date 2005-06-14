@@ -54,7 +54,7 @@ int initPlugin(struct doc_descriptor *desc) {
   type = identify_version(desc->filedes);
   switch(type) {
   case unknown:
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
     break;
 
   case oldword:

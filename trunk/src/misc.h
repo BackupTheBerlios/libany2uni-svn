@@ -318,6 +318,18 @@ struct doc_descriptor {
 #define ERR_STREAMFILE     -7
 #define ERR_ICU            -8
 #define ERR_READ_META      -9
+#define SAX_ERROR         -10
+#define INIT_ERROR        -11
+#define MEM_ERROR         -12
+#define ERR_PARSE_SST     -13
+#define ERR_IN_BBD        -14
+#define ERR_DICTIONARY    -15
+#define ERR_XREF          -16
+#define ERR_TOMANYFONTS   -17 /* if this error occurs, just increase the number
+				 of fonts allowed in the PDF plugin */
+#define ERR_KEYWORD       -18
+#define ENCRYPTED_FILE    -19
+#define ERR_OLE           -20
 
 
 #endif /* __MSC_H__ */

@@ -52,6 +52,7 @@ int initPlugin(struct doc_descriptor *desc) {
   /* check RTF header */
   if(strncmp(state->buf, "{\\rtf", 5)) {
     fprintf(stderr, "Error : %s is not an RTF file.\n", desc->filename);
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* get main encoding */

@@ -112,7 +112,7 @@ int initOLE(struct doc_descriptor *desc) {
   state->len = read(desc->fd, state->buf, BBSIZE);
   if(strncmp(state->buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8)) {
     fprintf(stderr, "Not an OLE file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   memcpy(&(state->nbOfBBD), state->buf+ 0x2C, 4);
@@ -149,7 +149,7 @@ int initOLE(struct doc_descriptor *desc) {
 
   if(!state->len) {
     fprintf(stderr, "Not a BIFF8 (excel 97, 2000, XP) file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
 
@@ -174,11 +174,11 @@ int initOLE(struct doc_descriptor *desc) {
   /* check BIFF8 header */
   if(strncmp(state->buf, "\x09\x08", 2)) {
     fprintf(stderr, "Not a BIFF8 (excel 97, 2000, XP) file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
   if(strncmp(state->buf + 4, "\x00\x06", 2)) {
     fprintf(stderr, "Not a BIFF8 (excel 97, 2000, XP) file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* read workbook globals */
@@ -211,12 +211,12 @@ int initOLE(struct doc_descriptor *desc) {
       state->SST = (UChar **) malloc(state->sstSize * sizeof(UChar *));
       if(state->SST == NULL) {
 	fprintf(stderr, "Memory allocation error : malloc failed\n");
-	return -2;
+	return MEM_ERROR;
       }
       for(j = 0; j < state->sstSize; j++) {
 	if(getUnicodeString(desc, &(state->SST[j]))) {
 	  fprintf(stderr, "Unable to read SST\n");
-	  return -2;
+	  return ERR_PARSE_SST;
 	}
       }
 
@@ -240,12 +240,12 @@ int initOLE(struct doc_descriptor *desc) {
       state->SST = (UChar **) realloc(state->SST, state->sstSize * sizeof(UChar *));
       if(state->SST == NULL) {
 	fprintf(stderr, "Memory allocation error : realloc failed\n");
-	return -2;
+	return MEM_ERROR;
       }
       for(; j < state->sstSize; j++) {
 	if(getUnicodeString(desc, &(state->SST[j]))) {
 	  fprintf(stderr, "Unable to read SST\n");
-	  return -2;
+	  return ERR_PARSE_SST;
 	}
       }
       
@@ -293,7 +293,7 @@ int getNextBlock(struct doc_descriptor *desc) {
     for(BBD = state->BBD; BBD != NULL && BBD->bbd != current; BBD = BBD->next) {}
     if(BBD == NULL) {
       fprintf(stderr, "Error in BBD\n");
-      return -2;
+      return ERR_IN_BBD;
     }
     state->currentBBlock = BBD->nextbbd;
     
@@ -302,7 +302,7 @@ int getNextBlock(struct doc_descriptor *desc) {
       return NO_MORE_DATA;
     } else if(state->currentBBlock == -3) {
       fprintf(stderr, "Unexpected block type\n");
-      return -2;
+      return ERR_IN_BBD;
     }
 
   } else {
@@ -436,7 +436,7 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   *target = (UChar*) malloc(4 * j + 2);
   if(*target == NULL) {
     fprintf(stderr, "Memory allocation error : malloc failed\n");
-    return -2;
+    return MEM_ERROR;
   }
 
   if(charlen == 2) {

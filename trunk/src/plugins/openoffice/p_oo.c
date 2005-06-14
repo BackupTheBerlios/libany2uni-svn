@@ -65,7 +65,7 @@ int getMeta(struct doc_descriptor *desc) {
     if (XML_Parse(desc->parser, buf, ((struct ParserState *)(desc->myState))->buflen, 0) == XML_STATUS_ERROR) {
       fprintf(stderr, "Parsing error : %s\n",
 	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
-      return -2;
+      return SAX_ERROR;
     }
 
     while(((struct ParserState *)(desc->myState))->meta_suspended) {
@@ -200,7 +200,7 @@ int parse(struct doc_descriptor* desc, char *out) {
     if (XML_Parse(desc->parser, buf, ((struct ParserState *)(desc->myState))->buflen, 0) == XML_STATUS_ERROR) {
       fprintf(stderr, "Parsing error : %s\n",
 	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
-      return -2;
+      return SAX_ERROR;
     }
     /* filling new buffer if the last one has been consumed */
     XML_GetParsingStatus(desc->parser, &status);
@@ -221,7 +221,7 @@ int parse(struct doc_descriptor* desc, char *out) {
     if (XML_Parse(desc->parser, buf, 0, 1) == XML_STATUS_ERROR) {
       fprintf(stderr, "Parsing error : %s\n",
 	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
-      return -2;
+      return SAX_ERROR;
     }
     return NO_MORE_DATA;
   }

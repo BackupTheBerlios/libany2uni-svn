@@ -45,7 +45,7 @@ int initPlugin(struct doc_descriptor *desc) {
   ((struct pdfState *)(desc->myState))->version = version(desc->fd);
   if(((struct pdfState *)(desc->myState))->version < 0) {
     fprintf(stderr, "not PDF file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* initialize converter */
@@ -57,7 +57,7 @@ int initPlugin(struct doc_descriptor *desc) {
   }
 
   if (initReader(desc) < 0) {
-    return -2;
+    return INIT_ERROR;
   };
 
   

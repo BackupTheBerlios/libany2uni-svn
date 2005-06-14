@@ -737,6 +737,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	  meta->name_length = u_strlen(meta->name);
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
+	    return ERR_ICU;
 	  }
 
 	  /* finding value */
@@ -769,6 +770,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
+	    return ERR_ICU;
 	  }
 
 	  break;
@@ -795,6 +797,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	  meta->name_length = u_strlen(meta->name);
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
+	    return ERR_ICU;
 	  }
 
 	  /* finding value */
@@ -831,6 +834,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 
 	  if (U_FAILURE(err)) {
 	    printf("error icu\n");
+	    return ERR_ICU;
 	  }
 
 	  break;
@@ -858,6 +862,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    meta->name_length = u_strlen(meta->name);
 	    if (U_FAILURE(err)) {
 	      printf("error icu\n");
+	      return ERR_ICU;
 	    }
 	    
 	    /* finding value */
@@ -889,6 +894,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    meta->value_length = u_strlen(meta->value);
 	    if (U_FAILURE(err)) {
 	      printf("error icu\n");
+	      return ERR_ICU;
 	    }
 	    
 	  } else while (strncmp(inbuf + i, " ", 1) &&

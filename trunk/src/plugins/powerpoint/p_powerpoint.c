@@ -57,7 +57,7 @@ int initPlugin(struct doc_descriptor *desc) {
 
   if(initOLE(desc)) {
     fprintf(stderr, "Can't initialize OLE reader\n");
-    return -2;
+    return INIT_ERROR;
   }
 
   return OK;

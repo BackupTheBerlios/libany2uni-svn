@@ -142,7 +142,7 @@ int doKeyword(struct doc_descriptor *desc, UChar *out, int size, int *l) {
   iparam = 0;
   if(strncmp(state->buf + state->cursor, "\\", 1)) {
     fprintf(stderr, "Not a keyword, operation aborted\n");
-    return -2;
+    return ERR_KEYWORD;
   }
 
   state->cursor++;
@@ -183,6 +183,7 @@ int doKeyword(struct doc_descriptor *desc, UChar *out, int size, int *l) {
       iparam = atoi(cparam);
     }
     
+    /* end of paragraph */
     if(!strncmp(keyword, "par", max(i, 3))) {
       memcpy(out + (*l)/2, "\x20\x00", 2);
       (*l) += 2;
@@ -469,6 +470,7 @@ int doMeta(struct doc_descriptor *desc, char *name, enum metaType type, int para
   ucnv_toUChars(desc->conv, meta->name, 2*strlen(name) + 2, name, strlen(name), &err);
   if (U_FAILURE(err)) {
     fprintf(stderr, "Unable to convert buffer\n");
+    return ERR_ICU;
   }
   meta->name_length = u_strlen(meta->name);
 
@@ -492,6 +494,7 @@ int doMeta(struct doc_descriptor *desc, char *name, enum metaType type, int para
     ucnv_toUChars(desc->conv, meta->value, 2*j + 2, metastring, j, &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
+      return ERR_ICU;
     }
     meta->value_length = u_strlen(meta->value);
     
@@ -507,6 +510,7 @@ int doMeta(struct doc_descriptor *desc, char *name, enum metaType type, int para
     ucnv_toUChars(desc->conv, meta->value, 2*j + 2, metastring, j, &err);
     if (U_FAILURE(err)) {
       fprintf(stderr, "Unable to convert buffer\n");
+      return ERR_ICU;
     }
     meta->value_length = u_strlen(meta->value);
     

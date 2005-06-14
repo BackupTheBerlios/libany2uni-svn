@@ -285,6 +285,8 @@ int getEncoding(int fd, char *encoding) {
   
   none = 0;
   i = 0;
+
+  /* search for 'charset' in header */
   len = read(fd, buf, BUFSIZE);
   while(len > 0 && !none && strncmp(buf + i, "charset=", 8)) {
     if (len - i < 8) {
@@ -302,11 +304,15 @@ int getEncoding(int fd, char *encoding) {
   if (!none && len > 0) {
     len = 0;
     i += 8;
+
+    /* copy charset */
     while ( strncmp(buf + i + len, "\x22", 1)) {
       len ++;
     }
     strncpy(encoding, buf + i, len);
     strncpy(encoding + len, "\0", 1);
+
+    /* default charset is US-ASCII */
   } else {
     strncpy(encoding, "US-ASCII\0", 9);
   }

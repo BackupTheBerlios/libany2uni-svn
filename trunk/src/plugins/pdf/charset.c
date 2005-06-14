@@ -26,6 +26,8 @@
 #include "p_pdf.h"
 #include "unicode/uchar.h"
 
+#define MAX_NB_FONTS 20
+
 int getEncodings(struct doc_descriptor *desc) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
   int len, i, j;
@@ -33,7 +35,7 @@ int getEncodings(struct doc_descriptor *desc) {
   char name[10];
   struct encodingTable *encoding = state->encodings;
   int nbopened, found;
-  int fontref[20], encodingref[20];
+  int fontref[MAX_NB_FONTS], encodingref[MAX_NB_FONTS];
   int nbfonts, nbencodrefs;
   int curfonts, curencodrefs;
 
@@ -271,9 +273,9 @@ int getEncodings(struct doc_descriptor *desc) {
 
 	} else {
 	  /* store font reference */
-	  if(nbfonts >= 20) {
+	  if(nbfonts >= MAX_NB_FONTS) {
 	    fprintf(stderr, "to many fonts\n");
-	    return -2;
+	    return ERR_TOMANYFONTS;
 	  }
 	  fontref[nbfonts] = getNumber(buf + i);
 	  encoding->ToUnicode = -2;
@@ -430,9 +432,9 @@ int readFontDictionary(struct doc_descriptor *desc, char *buf, int buflen,
       }
       if(strncmp(buf + i, "/", 1) && strncmp(buf + i, "<<", 2)) {
 	/* this is a reference to an encoding dictionary */
-	if(*nbencodrefs >= 20) {
+	if(*nbencodrefs >= MAX_NB_FONTS) {
 	  fprintf(stderr, "to many references to encoding dictionary\n");
-	  return -2;
+	  return ERR_TOMANYFONTS;
 	}
 	encodingref[*nbencodrefs] = getNumber(buf + i);
 	(*nbencodrefs)++;

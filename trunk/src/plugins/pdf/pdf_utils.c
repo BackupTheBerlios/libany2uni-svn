@@ -347,7 +347,7 @@ int getNextPage(struct doc_descriptor *desc) {
       if(!nbopened) {
 	/* end of document */
 	desc->nb_pages_read++;
-	return -1;
+	return NO_MORE_DATA;
       }
     }
   }
@@ -455,7 +455,7 @@ int getNextPage(struct doc_descriptor *desc) {
     i = 0;
     if (getValue(desc, buf, len, "Type", tmp)) {
       fprintf(stderr, "Can't find Type\n");
-      return -2;
+      return ERR_DICTIONARY;
     }
     while(!strncmp(tmp, "Pages", 5)) {
       i = 0;
@@ -516,7 +516,7 @@ int getNextPage(struct doc_descriptor *desc) {
       }
       if (getValue(desc, buf, len, "Type", tmp) < 0) {
 	fprintf(stderr, "Can't find Type\n");
-	return -2;
+	return ERR_DICTIONARY;
       }
     }
     state->currentStream = 0;
@@ -1240,7 +1240,7 @@ int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char 
   }
 
   if (!strncmp(buf2 + i, ">>", 2)) {
-    return -1;
+    return ERR_DICTIONARY;
   }
 
   if(i >= len - strlen(token)) {
@@ -1269,7 +1269,7 @@ int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char 
   }
 
   if(strncmp(buf2 + i, "/", 1)) {
-    return -1;
+    return ERR_DICTIONARY;
   }
   i++;
   if(i >= len - 20) {
@@ -1293,7 +1293,7 @@ int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char 
   }
   strncpy(value + j, "\0", 1);
 
-  return 0;
+  return OK;
 }
 
 
@@ -1329,7 +1329,7 @@ int initReader(struct doc_descriptor *desc) {
   
   if(strncmp(buf + i, "startxref", 9)) {
     fprintf(stderr, "Unable to find xref reference\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
   
   /* getting xref offset */
@@ -1345,7 +1345,7 @@ int initReader(struct doc_descriptor *desc) {
   /* get xref */
   lseek(desc->fd, state->xref, SEEK_SET);
   if(getXRef(desc)) {
-    return -2;
+    return ERR_XREF;
   }
 
   /* going to xref table or stream */
@@ -1417,7 +1417,7 @@ int initReader(struct doc_descriptor *desc) {
   }
   if(!found) {
     fprintf(stderr, "Unable to find Root entry in trailer\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* get metadata */
@@ -1469,7 +1469,7 @@ int initReader(struct doc_descriptor *desc) {
   len = readObject(desc, buf, BUFSIZE);
   if (getValue(desc, buf, len, "Type", tmp) < 0) {
     fprintf(stderr, "Can't find Type\n");
-    return -2;
+    return ERR_DICTIONARY;
   }
 
   /* get page count */
@@ -1554,7 +1554,7 @@ int initReader(struct doc_descriptor *desc) {
     strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
     if (getValue(desc, buf, len, "Type", tmp) < 0) {
       fprintf(stderr, "Can't find Type\n");
-      return -2;
+      return ERR_DICTIONARY;
     }
   }
 
@@ -1578,14 +1578,14 @@ int gotoRef(struct doc_descriptor *desc, int ref){
   XRef = state->XRef;
   if(XRef == NULL) {
     fprintf(stderr, "XRef is empty\n");
-    return -2;
+    return ERR_XREF;
   }
   while(XRef != NULL && XRef->object_number != ref) {
     XRef = XRef->next;
   }
   if(XRef == NULL) {
     fprintf(stderr, "cannot find reference to object %d\n", ref);
-    return -2;
+    return ERR_XREF;
   }
 
   if(!XRef->isInObjectStream) {
@@ -1604,7 +1604,7 @@ int gotoRef(struct doc_descriptor *desc, int ref){
 	  XRef->object_number != state->objectStream; XRef = XRef->next) {}
     if(XRef == NULL) {
       fprintf(stderr, "cannot find object stream number %d\n", state->objectStream);
-      return -2;
+      return ERR_XREF;
     }
     lseek(desc->fd, XRef->offset_or_index, SEEK_SET);
     len = read(desc->fd, buf, BUFSIZE);
@@ -2574,7 +2574,7 @@ int getXRef(struct doc_descriptor *desc) {
 	} else {
 	  /* unknown type (future pdf versions) */
 	  fprintf(stderr, "Unknown entry type in xref stream : %d\n", tmp[0]);
-	  return -2;
+	  return ERR_XREF;
 	}
       
 	i += field1Size + field2Size + field3Size;
@@ -2604,13 +2604,13 @@ int version(int fd) {
   lseek(fd, 0, SEEK_SET);
   if( read(fd, buf, 8) != 8) {
     fprintf(stderr, "not a document file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* checking header */
   if( strncmp(buf, "%PDF-1.", 7)){
     fprintf(stderr, "not a PDF file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   /* get version number */

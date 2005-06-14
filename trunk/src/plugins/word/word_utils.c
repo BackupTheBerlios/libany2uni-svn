@@ -111,7 +111,7 @@ long int seek_textstart(struct doc_descriptor *desc) {
     memcpy(&flags, buf + 10, 2);
     if (flags & 0x100) {
       fprintf(stderr, "File encrypted, unable to read\n");
-      return -2;
+      return ENCRYPTED_FILE;
     }
 
     /* position on text start */
@@ -120,7 +120,7 @@ long int seek_textstart(struct doc_descriptor *desc) {
 
   } else {
     fprintf(stderr, "unable to find WordDocument entry\n");
-    return -2;
+    return ERR_OLE;
   }
 
   return length;

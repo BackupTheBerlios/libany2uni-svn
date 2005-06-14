@@ -45,6 +45,8 @@ int read_next(struct doc_descriptor *desc, UChar *out, int size) {
   if(state->nbBytesRead >= state->fileSize || state->len <= 0) {
     return NO_MORE_DATA;
   }
+
+  /* main loop */
   while(1) {
     if(state->cur > state->len - 2) {
       memcpy(state->buf, state->buf + state->cur, state->len - state->cur);
@@ -57,6 +59,7 @@ int read_next(struct doc_descriptor *desc, UChar *out, int size) {
       state->cur = 0;
     }
 
+    /* read record header */
     recordType = recordlen = recordInstance = 0;
     if(state->readerState == outOfString) {
       if(state->cur > state->len - 4) {
@@ -215,6 +218,7 @@ int read_next(struct doc_descriptor *desc, UChar *out, int size) {
 	return l;
       }
 
+      /* other records */
     } else if(recordInstance != 0x000F) {
       if(recordInstance == 0x03F3) {
 	desc->nb_pages_read++;
@@ -233,6 +237,7 @@ int read_next(struct doc_descriptor *desc, UChar *out, int size) {
 	return NO_MORE_DATA;
       }
 
+      /* container record */
     } else {
       state->readerState = outOfString;
     }
@@ -253,9 +258,11 @@ int initOLE(struct doc_descriptor *desc) {
   state->readerState = outOfString;
   state->fileSize = state->nbBytesRead = 0;
   state->len = read(desc->fd, state->buf, BBSIZE);
+
+  /* check file header */
   if(strncmp(state->buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8)) {
     fprintf(stderr, "Not an OLE file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
   memcpy(&(state->nbOfBBD), state->buf+ 0x2C, 4);
@@ -298,7 +305,7 @@ int initOLE(struct doc_descriptor *desc) {
 
   if(!state->len) {
     fprintf(stderr, "Not a Powerpoint (97 or higher) file\n");
-    return -2;
+    return ERR_UNKNOWN_FORMAT;
   }
 
 
@@ -338,7 +345,7 @@ int getNextBlock(struct doc_descriptor *desc) {
     for(BBD = state->BBD; BBD != NULL && BBD->bbd != current; BBD = BBD->next) {}
     if(BBD == NULL) {
       fprintf(stderr, "Error in BBD\n");
-      return -2;
+      return ERR_IN_BBD;
     }
     state->currentBBlock = BBD->nextbbd;
     
@@ -347,7 +354,7 @@ int getNextBlock(struct doc_descriptor *desc) {
       return NO_MORE_DATA;
     } else if(state->currentBBlock == -3) {
       fprintf(stderr, "Unexpected block type\n");
-      return -2;
+      return ERR_IN_BBD;
     }
 
   } else {

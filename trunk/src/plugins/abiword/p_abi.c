@@ -125,7 +125,7 @@ int parse(struct doc_descriptor* desc, char *out) {
 	== XML_STATUS_ERROR) {
       fprintf(stderr, "Parsing error : %s\n",
 	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
-      return -2;
+      return SAX_ERROR;
     }
 
     /* filling the metadata linked list if if metadata have been parsed */
@@ -166,7 +166,7 @@ int parse(struct doc_descriptor* desc, char *out) {
     if (XML_Parse(desc->parser, buf, 0, 1) == XML_STATUS_ERROR) {
       fprintf(stderr, "Parsing error : %s\n",
 	      XML_ErrorString(XML_GetErrorCode(desc->parser)));
-      return -2;
+      return SAX_ERROR;
     }
     return NO_MORE_DATA;
   }
