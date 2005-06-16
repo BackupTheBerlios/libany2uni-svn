@@ -256,7 +256,6 @@ int doKeyword(struct doc_descriptor *desc, UChar *out, int size, int *l) {
       doMeta(desc, "number of pages", number, iparam);
 
     } else if(!strncmp(keyword, "nofwords", max(i, 8))) {
-      doMeta(desc, "number of words", number, iparam);
 
     } else if(!strncmp(keyword, "yr", max(i, 2))) {
       memset(tmp, '\x00', 20);

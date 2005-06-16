@@ -74,9 +74,14 @@ int readOLE(struct doc_descriptor *desc, char *out);
  *
  * \param desc the document descriptor
  * \param target target utf-16 string
+ * \param lastsstpartbegin position of the beginning of the last record for the SST
+ * \param recordlen length of current record
  * \return an error code
  */
-int getUnicodeString(struct doc_descriptor *desc, UChar **target);
+int getUnicodeString(struct doc_descriptor *desc,
+		     UChar **target,
+		     unsigned long *lastsstpartbegin,
+		     int *recordlen);
 
 
 /**

@@ -25,6 +25,7 @@
 
 #include "p_pdf.h"
 #include <math.h>
+#include <ctype.h>
 
 int getText(struct doc_descriptor *desc, UChar *out, int size) {
   struct pdfState *state = ((struct pdfState *)(desc->myState));
@@ -173,7 +174,7 @@ int getNextStream(struct doc_descriptor *desc) {
   }
 
   if (!strncmp(buf + i, "[", 1)) {
-    strncmp(tmp, "\x00\x00\x00\x00\x00\x00", 6);
+    strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
     sprintf(tmp, "%d ", state->currentStream);
     while(strncmp(buf + i, tmp, strlen(tmp))) {
       i++;
@@ -222,7 +223,7 @@ int getNextStream(struct doc_descriptor *desc) {
   /* next stream is in another page */
   state->newPage = 1;
   do {
-    if (getNextPage(desc) == -1) {
+    if (getNextPage(desc) < 0) {
       state->currentStream = -1;
       return NO_MORE_DATA;
     }
@@ -343,7 +344,6 @@ int getNextPage(struct doc_descriptor *desc) {
     }
     if(!strncmp(buf + i, ">>", 2)) {
       nbopened--;
-
       if(!nbopened) {
 	/* end of document */
 	desc->nb_pages_read++;
@@ -400,10 +400,11 @@ int getNextPage(struct doc_descriptor *desc) {
       i = 0;
     }
   }
-  strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 5);
+  strncpy(tmp, "\x00\x00\x00\x00\x00\x00", 6);
   sprintf(tmp, "%d ", state->currentPage);
 
-  for( ; i <= len - strlen(tmp) && strncmp(buf + i, tmp, strlen(tmp)); i++) {
+  for(i-- ; i <= len - strlen(tmp) - 1 &&
+	 (isdigit(buf[i]) || strncmp(buf + i + 1, tmp, strlen(tmp))); i++) {
     if (i >= len - 7) {
       strncpy(buf, buf + i, len - i);
       len = readObject(desc, buf + len - i, BUFSIZE - len  + i) + len - i;
@@ -561,7 +562,6 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
   char fontName[12];
 
   escaped = 0;
-
   if(!state->stream) {
     state->stream = 1;
     gotoRef(desc, state->currentStream);
@@ -1087,6 +1087,28 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 	    if(i >= len - 2) {
 	      strncpy(buf, buf + i, len - i);
 	      len = readObject(desc, buf + len - i, BUFSIZE - len + i) + len - i;
+	      if(len <= 0) {
+		fini = 1;
+		state->stream = 0;
+		state->inString = 0;
+		freeFilterStruct(state->filter);
+		state->filter = NULL;
+		state->currentOffset = 0;
+		if(state->last_available) {
+		  out[l/2] = state->last;
+		  l += 2;
+		  state->last = 0;
+		  state->last_available = 0;
+		}
+		getNextStream(desc);
+		if(state->newPage) {
+		  memcpy(out + l, "\x20\x00", 2);
+		  l += 2;
+		  state->newPage = 0;
+		}
+		memcpy(out + l, "\x00\x00", 2);
+		return l;
+	      }
 	      state->objectStream = state->currentStream;
 	      i = 0;
 	    }
@@ -1319,13 +1341,10 @@ int initReader(struct doc_descriptor *desc) {
   infoRef = -1;
 
   /* looking for 'startxref' */
-  lseek(desc->fd, -40, SEEK_END);
-  len = read(desc->fd, buf, 40);
+  lseek(desc->fd, -1024, SEEK_END);
+  len = read(desc->fd, buf, 1024);
 
-  if (len != 40) {
-    fprintf(stderr, "file corrupted\n");
-  }
-  for(i = 30; i > 0 && strncmp(buf + i, "startxref", 9); i--) {}
+  for(i = 1014; i > 0 && strncmp(buf + i, "startxref", 9); i--) {}
   
   if(strncmp(buf + i, "startxref", 9)) {
     fprintf(stderr, "Unable to find xref reference\n");
@@ -1412,6 +1431,9 @@ int initReader(struct doc_descriptor *desc) {
 	  i++;
 	}
 	infoRef = getNumber(buf + i);
+      } else if(!strncmp(keyword, "Encrypt", 7)) {
+	fprintf(stderr, "encrypted document\n");
+	return ENCRYPTED_FILE;
       }
     }
   }
@@ -2663,7 +2685,8 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   len = read(desc->fd, srcbuf, BUFSIZE);
 
   /* get filters */
-  for(i = 0; strncmp(srcbuf + i, "/Filter", 7); i++) {}
+  for(i = 0; strncmp(srcbuf + i, "/Filter", 7)
+	&& strncmp(srcbuf + i, "stream", 6); i++) {}
 
   if(!strncmp(srcbuf + i, "/Filter", 7)) {
     i += 7;

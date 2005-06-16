@@ -288,7 +288,8 @@ int getEncoding(int fd, char *encoding) {
 
   /* search for 'charset' in header */
   len = read(fd, buf, BUFSIZE);
-  while(len > 0 && !none && strncmp(buf + i, "charset=", 8)) {
+  while(len > 0 && !none && strncmp(buf + i, "charset=", 8)
+	&& strncmp(buf + i, "CHARSET=", 8)) {
     if (len - i < 8) {
       r = len - i;
       strncpy(buf, buf + i, r);
@@ -296,7 +297,7 @@ int getEncoding(int fd, char *encoding) {
       i = 0;
       break;
     }
-    if (!strncmp(buf + i, "<body", 5)) {
+    if (!strncmp(buf + i, "<body", 5) || !strncmp(buf + i, "<BODY", 5)) {
       none = 1;
     }
     i++;

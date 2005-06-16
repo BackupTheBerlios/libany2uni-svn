@@ -254,6 +254,7 @@ int initOLE(struct doc_descriptor *desc) {
   char name[64];
   int j, namelen;
   int propStart;
+  int err;
 
   state->readerState = outOfString;
   state->fileSize = state->nbBytesRead = 0;
@@ -284,7 +285,10 @@ int initOLE(struct doc_descriptor *desc) {
     state->cur += 0x80;
     if(state->cur > state->len - 0x80) {
       /* goto next block */
-      getNextBlock(desc);
+      err = getNextBlock(desc);
+      if(err) {
+	return err;
+      }
       lseek(desc->fd, (state->currentBBlock + 1) * BBSIZE, SEEK_SET);
       state->len = read(desc->fd, state->buf, BBSIZE);
       state->cur = 0;
@@ -292,6 +296,10 @@ int initOLE(struct doc_descriptor *desc) {
     memset(name, '\x00', 64);
     namelen = 0;
     memcpy(&namelen, state->buf + state->cur + 0x40, 2);
+    if(namelen > 0x40 || namelen < 0) {
+      fprintf(stderr, "Not a Powerpoint (97 or higher) file\n");
+      return ERR_UNKNOWN_FORMAT;
+    }
     for(j = 0; j < namelen; j += 2) {
       name[j/2] = state->buf[state->cur + j];
     }
@@ -328,6 +336,7 @@ int initOLE(struct doc_descriptor *desc) {
     lseek(desc->fd, (state->currentBBlock + 1) * BBSIZE, SEEK_SET);
     state->len = read(desc->fd, state->buf, BBSIZE);
   }
+  state->cur = 0;
 
   return OK;
 }
@@ -377,7 +386,7 @@ int readOLE(struct doc_descriptor *desc, char *out) {
   int err;
 
   err = getNextBlock(desc);
-  if(err < 0) {
+  if(err) {
     return err;
   }
   if(state->bigSize) {
@@ -401,9 +410,19 @@ int getBBD(struct doc_descriptor *desc) {
   int currentBB;
   int BBDnb;
   int len, i,j;
+  long int extendedBBDList = 0;
 
   for(currentBB= 0, j = 0; j < state->nbOfBBD; j++) {
-    memcpy(&BBDnb, state->buf + 0x4C + 4*j, 4);
+    if(j < 109) {
+      memcpy(&BBDnb, state->buf + 0x4C + 4*j, 4);
+    } else {
+      if(j == 109) {
+	memcpy(&extendedBBDList, state->buf + 0x44, 4);
+	lseek(desc->fd, (extendedBBDList + 1) * BBSIZE, SEEK_SET);
+	state->len = read(desc->fd, state->buf, BBSIZE);
+      }
+      memcpy(&BBDnb, state->buf + 4*(j - 109), 4);
+    }
 
     /* read next BBD */
     lseek(desc->fd, (BBDnb + 1) * BBSIZE, SEEK_SET);

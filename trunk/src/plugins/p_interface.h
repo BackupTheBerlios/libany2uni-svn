@@ -39,6 +39,7 @@
  */
 int initPlugin(struct doc_descriptor *desc);
 
+
 /**
  * close the plugin
  *
@@ -46,6 +47,7 @@ int initPlugin(struct doc_descriptor *desc);
  * \return OK or an error code
  */
 int closePlugin(struct doc_descriptor *desc);
+
 
 /**
  * reads the next paragraph
@@ -56,6 +58,7 @@ int closePlugin(struct doc_descriptor *desc);
  *         the end of document is reached, or an error code
  */
 int p_read_content(struct doc_descriptor *desc, UChar *buf);
+
 
 /**
  * reads the next metadata
@@ -72,6 +75,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf);
  * \return OK, NO_MORE_META or an error code
  */
 int p_read_meta(struct doc_descriptor *desc, struct meta *meta);
+
 
 /**
  * gets an indicator of the progression in the processing

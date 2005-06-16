@@ -54,6 +54,7 @@ int initPlugin(struct doc_descriptor *desc) {
   type = identify_version(desc->filedes);
   switch(type) {
   case unknown:
+    fprintf(stderr, "Not MS Word format\n");
     return ERR_UNKNOWN_FORMAT;
     break;
 

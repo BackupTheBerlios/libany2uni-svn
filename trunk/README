@@ -17,8 +17,21 @@ https://developer.berlios.de/projects/libany2uni/
 If you have any feedback or if you find a bug, please send me an e-mail
 at ged22 at users.berlios.de .
 
+
+Help:
+-----
 For installation guidance, see INSTALL.
 For help about using the library, see HOWTO.
 If you need to write your own plugin, see doc/How_To_Create_New_Plugins.
 On the SVN repository, you can find conception documentation in OpenOffice
 Writer format.
+
+
+UTF8 tool:
+----------
+In the 'utils' directory, you can find a tool using libany2uni. It is called
+'any2utf8' It reads a document and outputs the text in UTF8, to the standard
+output.
+To compile it, just type make.
+Run it with './any2utf8 <path + name of the document>'.
+You can also get metadata with the -m option.

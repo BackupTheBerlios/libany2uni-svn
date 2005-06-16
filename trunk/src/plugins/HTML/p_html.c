@@ -54,7 +54,7 @@ int initPlugin(struct doc_descriptor *desc) {
   getEncoding(desc->fd, encoding);
   desc->conv = ucnv_open(encoding, &err);
   if (U_FAILURE(err)) {
-      fprintf(stderr, "Unable to open ICU converter\n");
+    fprintf(stderr, "Unable to open ICU converter\n");
     return ERR_ICU;
   }
 

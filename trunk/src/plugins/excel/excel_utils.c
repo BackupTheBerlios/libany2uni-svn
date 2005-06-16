@@ -105,9 +105,10 @@ int initOLE(struct doc_descriptor *desc) {
   struct oleState* state = (struct oleState *)(desc->myState);
   char name[64];
   int j, namelen;
-  int propStart, sstSize;
+  int propStart;
   int recordType, recordlen;
   int lastrecord, lastlen;
+  unsigned long lastsstpartbegin;
 
   state->len = read(desc->fd, state->buf, BBSIZE);
   if(strncmp(state->buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8)) {
@@ -124,6 +125,8 @@ int initOLE(struct doc_descriptor *desc) {
 
   /* go to root entry */
   lseek(desc->fd, (state->rootStart + 1) * BBSIZE, SEEK_SET);
+  state->currentBBlock = state->rootStart;
+  state->bigSize = 1;
   state->len = read(desc->fd, state->buf, BBSIZE);
   state->cur = -0x80;
 
@@ -131,11 +134,19 @@ int initOLE(struct doc_descriptor *desc) {
   do{
     state->cur += 0x80;
     if(state->cur > state->len - 0x80) {
+      /* goto next block */
+      getNextBlock(desc);
+      lseek(desc->fd, (state->currentBBlock + 1) * BBSIZE, SEEK_SET);
       state->len = read(desc->fd, state->buf, BBSIZE);
+      state->cur = 0;
     }
     memset(name, '\x00', 64);
     namelen = 0;
     memcpy(&namelen, state->buf + state->cur + 0x40, 2);
+    if(namelen > 0x40 || namelen < 0) {
+      fprintf(stderr, "Not a BIFF8 (excel 97, 2000, XP) file\n");
+      return ERR_UNKNOWN_FORMAT;
+    }
     for(j = 0; j < namelen; j += 2) {
       name[j/2] = state->buf[state->cur + j];
     }
@@ -191,8 +202,10 @@ int initOLE(struct doc_descriptor *desc) {
   state->sstSize = 0;
   lastrecord = 0;
   while(recordType != 0x0A) {
+
     /* SST */
     if(recordType == 0xFC) {
+      lastsstpartbegin = lseek(desc->fd, 0, SEEK_CUR) - state->len + state->cur;
       lastrecord = recordType;
       if(state->cur > state->len - 8) {
 	lastlen = state->len;
@@ -207,48 +220,18 @@ int initOLE(struct doc_descriptor *desc) {
       memcpy(&(desc->size), state->buf + state->cur, 4);
       memcpy(&(state->sstSize), state->buf + state->cur + 4, 4);
       state->cur += 8;
-      recordlen -= 8;
       state->SST = (UChar **) malloc(state->sstSize * sizeof(UChar *));
       if(state->SST == NULL) {
 	fprintf(stderr, "Memory allocation error : malloc failed\n");
 	return MEM_ERROR;
       }
       for(j = 0; j < state->sstSize; j++) {
-	if(getUnicodeString(desc, &(state->SST[j]))) {
+	if(getUnicodeString(desc, &(state->SST[j]), &lastsstpartbegin, &recordlen)) {
 	  fprintf(stderr, "Unable to read SST\n");
 	  return ERR_PARSE_SST;
 	}
       }
 
-      /* CONTINUE */
-    } else if(lastrecord == 0xFC && recordType == 0x3C) {
-      if(state->cur > state->len - 8) {
-	lastlen = state->len;
-	memcpy(state->buf, state->buf + state->cur, state->len - state->cur);
-	state->len = readOLE(desc, state->buf + state->len - state->cur);
-	if(state->len < 0) {
-	  return state->len;
-	}
-	state->len += lastlen - state->cur;
-	state->cur = 0;
-      }
-      sstSize = 0;
-      memcpy(&sstSize, state->buf + state->cur + 4, 4);
-      state->sstSize += sstSize;
-      state->cur += 8;
-      recordlen -= 8;
-      state->SST = (UChar **) realloc(state->SST, state->sstSize * sizeof(UChar *));
-      if(state->SST == NULL) {
-	fprintf(stderr, "Memory allocation error : realloc failed\n");
-	return MEM_ERROR;
-      }
-      for(; j < state->sstSize; j++) {
-	if(getUnicodeString(desc, &(state->SST[j]))) {
-	  fprintf(stderr, "Unable to read SST\n");
-	  return ERR_PARSE_SST;
-	}
-      }
-      
     } else {
       state->cur += recordlen;
       lastrecord = recordType;
@@ -342,7 +325,8 @@ int readOLE(struct doc_descriptor *desc, char *out) {
 }
 
 
-int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
+int getUnicodeString(struct doc_descriptor *desc, UChar **target,
+		     unsigned long *lastsstpartbegin, int *recordlen) {
   struct oleState* state = ((struct oleState *)(desc->myState));
   UErrorCode err;
   int j, i, k;
@@ -351,9 +335,9 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   int strlen = 0;
   int charlen = 1;
   int rtSize, feSize;
-  int lastlen;
+  int lastlen, recordType;
 
-  if(state->cur > state->len - 3) {
+  if(state->cur > state->len - 4) {
     lastlen = state->len;
     memcpy(state->buf, state->buf + state->cur, state->len - state->cur);
     state->len = readOLE(desc, state->buf + state->len - state->cur);
@@ -366,6 +350,31 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
 
   feSize = rtSize = 0;
   flags = 0;
+  
+  /* end of record, CONTINUE expected */
+  if(lseek(desc->fd, 0, SEEK_CUR) - state->len + state->cur - *lastsstpartbegin
+     >= *recordlen) {
+    recordType = *recordlen = 0;
+    memcpy(&recordType, state->buf + state->cur, 2);
+    memcpy(recordlen, state->buf + state->cur + 2, 2);
+    if(recordType != 0x3C) {
+      fprintf(stderr, "Unexpected end of SST\n");
+      return ERR_PARSE_SST;
+    }
+    state->cur += 4;
+    *lastsstpartbegin = lseek(desc->fd, 0, SEEK_CUR) - state->len + state->cur;
+  }
+
+  if(state->cur > state->len - 4) {
+    lastlen = state->len;
+    memcpy(state->buf, state->buf + state->cur, state->len - state->cur);
+    state->len = readOLE(desc, state->buf + state->len - state->cur);
+    if(state->len < 0) {
+      return state->len;
+    }
+    state->len += lastlen - state->cur;
+    state->cur = 0;
+  }
   memcpy(&flags, state->buf + state->cur + 2, 1);
   if(flags != 0 && flags != 1 && flags != 8 && flags != 9 && flags != 4
      && flags != 5 && flags != 0x0C && flags != 0x0D) {
@@ -418,6 +427,22 @@ int getUnicodeString(struct doc_descriptor *desc, UChar **target) {
   }
 
   for(j = 0; j < charlen * strlen; j += charlen) {
+
+    /* end of record, CONTINUE expected */
+    if(lseek(desc->fd, 0, SEEK_CUR) - state->len + state->cur - *lastsstpartbegin
+       >= *recordlen) {
+      recordType = *recordlen = 0;
+      memcpy(&recordType, state->buf + state->cur, 2);
+      memcpy(recordlen, state->buf + state->cur + 2, 2);
+      if(recordType != 0x3C) {
+	fprintf(stderr, "Unexpected end of SST\n");
+	return ERR_PARSE_SST;
+      }
+      state->cur += 4;
+      *lastsstpartbegin = lseek(desc->fd, 0, SEEK_CUR) - state->len + state->cur;
+      state->cur++;
+    }
+
     if(state->cur > state->len - charlen) {
       lastlen = state->len;
       memcpy(state->buf, state->buf + state->cur, state->len - state->cur);
