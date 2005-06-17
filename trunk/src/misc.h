@@ -60,6 +60,8 @@
 #define PDFDOC    17
 #define WPDOC     18
 #define QXPRESS   19
+#define TXT       20
+#define MHT       21
 
 /**
  * sax parser state structure for expat
@@ -139,6 +141,16 @@ struct rtfState {
   int  cursor;                     /* current offset in buffer */
   int  isMeta;                     /* 1 when we are parsing the info group */
   enum rtfEncoding  mainEncoding;  /* code for main encoding */
+};
+
+
+/**
+ * state structure for mht reader
+ */
+struct mhtState {
+  char buf[2048];                  /* buffer for file content */
+  int  len;                        /* buffer length */
+  int  cursor;                     /* current offset in buffer */
 };
 
 

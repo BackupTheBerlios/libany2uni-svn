@@ -21,9 +21,11 @@ Boston, MA  02111-1307, USA.
 
 #include <stdio.h>
 #include "internals.h"
-
-extern size_t strlen(const char *s);
-extern int memcmp(const void *s1, const void *s2, size_t n);
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
 
 
 /* params : filename : the name of the document file
@@ -52,6 +54,9 @@ char *getextension(char *filename) {
  */
 int format_detection(char *filename) {
   char *extension = NULL;
+  int fd;
+  int len;
+  char buf[1024];
 
   /* getting the extension string */
   extension = getextension(filename);
@@ -86,10 +91,20 @@ int format_detection(char *filename) {
     return HTMLDOC;
   } else if (!memcmp(extension, "tex", 3)) {
     return LATEX;
-  } else if (!memcmp(extension, "rtf", 3)) {
-    return RTFDOC;
-  } else if (!memcmp(extension, "doc", 3)) {
-    return MSWORD;
+  } else if (!memcmp(extension, "doc", 3) ||
+	     !memcmp(extension, "rtf", 3)) {
+
+    /* check file header */
+    fd = open(filename, O_RDONLY);
+    len = read(fd, buf, 1024);
+    if((len >= 2 && !strncmp(buf, "\xDB\xA5", 2)) ||
+       (len >= 8 && !strncmp(buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8))) {
+      return MSWORD;
+    } else if(len >= 5 && !strncmp(buf, "{\\rtf", 5)) {
+      return RTFDOC;
+    } else {
+      return UNKNOWN;
+    }
   } else if (!memcmp(extension, "xls", 3)) {
     return MSEXCEL;
   } else if (!memcmp(extension, "ppt", 3)
@@ -101,6 +116,10 @@ int format_detection(char *filename) {
     return WPDOC;
   } else if (!memcmp(extension, "qxd", 3)) {
     return QXPRESS;
+  } else if (!memcmp(extension, "txt", 3)) {
+    return TXT;
+  } else if (!memcmp(extension, "mht", 3)) {
+    return MHT;
   }
   return UNKNOWN;
 }

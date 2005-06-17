@@ -176,6 +176,24 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
 
+  case TXT:
+    handle = dlopen("/usr/lib/libany2uni/p_txt.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_txt.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
+  case MHT:
+    handle = dlopen("/usr/lib/libany2uni/p_mht.so", RTLD_LAZY);
+    if(handle == NULL) {
+      fprintf(stderr, "Unable to open p_mht.so\n");
+      return ERR_DLOPEN;
+    }
+
+    break;
+
   default :
     break;
   }
