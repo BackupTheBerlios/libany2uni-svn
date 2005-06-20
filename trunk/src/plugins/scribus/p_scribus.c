@@ -62,6 +62,11 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("utf8", &err);
   if (U_FAILURE(err)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    XML_ParserFree(desc->parser);
+    desc->parser = NULL;
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
@@ -77,9 +82,14 @@ int initPlugin(struct doc_descriptor *desc) {
  * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
-  free(desc->myState);
+
+  if(desc->myState != NULL) {
+    free(desc->myState);
+  }
   ucnv_close(desc->conv);
-  XML_ParserFree(desc->parser);
+  if(desc->parser != NULL) {
+    XML_ParserFree(desc->parser);
+  }
   close(desc->fd);
   return OK;
 }
@@ -225,6 +235,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 		   &src, outputbuf + strlen(outputbuf), NULL, FALSE, &err);
     len = 2*(dest - buf);
     if (U_FAILURE(err)) {
+      free(outputbuf);
+      outputbuf = NULL;
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }

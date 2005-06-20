@@ -36,6 +36,7 @@ int initReader(struct doc_descriptor *desc) {
 
   /* search Content-Type */
   state->len = read(desc->fd, state->buf, BUFSIZE);
+  state->cursor = 0;
   while(strncmp(state->buf + state->cursor, "Content-Type", 12)) {
 
     if(getNextLine(desc)) {

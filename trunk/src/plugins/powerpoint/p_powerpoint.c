@@ -51,11 +51,18 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("cp1252", &err);
   if (U_FAILURE(err)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
 
   if(initOLE(desc)) {
+    freeBBD(((struct oleState *)(desc->myState))->BBD);
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "Can't initialize OLE reader\n");
     return INIT_ERROR;
   }
@@ -71,8 +78,10 @@ int initPlugin(struct doc_descriptor *desc) {
 int closePlugin(struct doc_descriptor *desc) {
   struct oleState* state = (struct oleState *)(desc->myState);
 
-  freeBBD(state->BBD);
-  free((struct oleState *) state);
+  if(desc->myState != NULL) {
+    freeBBD(state->BBD);
+    free((struct oleState *) state);
+  }
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

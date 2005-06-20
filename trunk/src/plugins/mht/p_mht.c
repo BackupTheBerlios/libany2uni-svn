@@ -46,8 +46,12 @@
 int initPlugin(struct doc_descriptor *desc) {
 
   desc->fd = open(desc->filename, O_RDONLY);
+  lseek(desc->fd, 0, SEEK_SET);
   desc->myState = (struct mhtState *) malloc(sizeof(struct mhtState));
   if(initReader(desc)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "Can't initialize MHT reader\n");
     return INIT_ERROR;
   }
@@ -62,7 +66,9 @@ int initPlugin(struct doc_descriptor *desc) {
  * closes the plugin by freeing the xmlreader
  */
 int closePlugin(struct doc_descriptor *desc) {
-  free(desc->myState);
+  if(desc->myState != NULL) {
+    free(desc->myState);
+  }
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;
@@ -101,6 +107,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 		   &src, outputbuf + strlen(outputbuf), NULL, FALSE, &err);
     len = 2*(dest - buf);
     if (U_FAILURE(err)) {
+      free(outputbuf);
+      outputbuf = NULL;
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }

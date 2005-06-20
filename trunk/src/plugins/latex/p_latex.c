@@ -50,7 +50,9 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("latin1", &err);
   if (U_FAILURE(err)) {
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
+    close(desc->fd);
     return ERR_ICU;
   }
 
@@ -96,6 +98,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
     len = 2 * ucnv_toUChars(desc->conv, buf, 2*INTERNAL_BUFSIZE,
 			    outputbuf, strlen(outputbuf), &err);
     if (U_FAILURE(err)) {
+      free(outputbuf);
+      outputbuf = NULL;
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }

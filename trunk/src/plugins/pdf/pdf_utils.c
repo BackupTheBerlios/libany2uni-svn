@@ -1338,6 +1338,8 @@ int initReader(struct doc_descriptor *desc) {
   state->encodings = NULL;
   state->filter = NULL;
   state->XRef = NULL;
+  state->predictor = 0;
+  state->columns = 0;
   infoRef = -1;
 
   /* looking for 'startxref' */
@@ -2849,7 +2851,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   
   /* reverse prediction filter */
   if(state->predictor >= 10) {
-    memset(rest, '\x00', state->columns + 2);
+    memset(rest, '\x00', 10);
     restlen = 0;
     len = 0;
     for(i = 1; i < len2 - state->columns + 1; i += state->columns + 1) {
@@ -2962,6 +2964,8 @@ int getMetadata(struct doc_descriptor *desc, int infoRef) {
   UChar *uvalue, *uname;
   int valuelen, namelen;
 
+  desc->meta = NULL;
+
   /* goto Info dictionary */
   gotoRef(desc, infoRef);
   len = readObject(desc, buf, BUFSIZE);
@@ -3070,7 +3074,7 @@ int getMetadata(struct doc_descriptor *desc, int infoRef) {
 	  strncpy(value + j, "\0", 1);
 	}
 
-	if(strlen(value)){
+	if(j){
 
 	  /* convert name and value to UTF-16 */
 	  uname = (UChar *) malloc(2*strlen(name) + 2);
@@ -3079,9 +3083,15 @@ int getMetadata(struct doc_descriptor *desc, int infoRef) {
 				      name, strlen(name), &err);
 	  if(value[0] == -2) {
 	    uvalue = (UChar *) malloc(j);
-	    memcpy(uvalue, value+2, j - 2);
-	    memcpy(uvalue + j - 2, "\x00\x00", 2);
-	    valuelen = j/2 - 1;
+	    err = U_ZERO_ERROR;
+	    desc->conv = ucnv_open("utf16be", &err);
+	    err = U_ZERO_ERROR;
+	    valuelen = ucnv_toUChars(desc->conv, uvalue, j,
+				     (value+2), j-2, &err);
+
+	    err = U_ZERO_ERROR;
+	    desc->conv = ucnv_open("latin1", &err);
+
 	  } else {
 	    uvalue = (UChar *) malloc(2*strlen(value) + 2);
 	    err = U_ZERO_ERROR;

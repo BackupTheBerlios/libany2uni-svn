@@ -48,13 +48,15 @@ int initPlugin(struct doc_descriptor *desc) {
   char encoding[20];
 
   desc->fd = open(desc->filename, O_RDONLY);
+  lseek(desc->fd, 0, SEEK_SET);
 
   /* initialize converter ( content is utf8 ) */
   err = U_ZERO_ERROR;
   getEncoding(desc->fd, encoding);
   desc->conv = ucnv_open(encoding, &err);
   if (U_FAILURE(err)) {
-    fprintf(stderr, "Unable to open ICU converter\n");
+    close(desc->fd);
+    fprintf(stderr, "%s : Unable to open ICU converter\n", desc->filename);
     return ERR_ICU;
   }
 
@@ -93,7 +95,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 
   /* reading the next paragraph */
   while (len == 0) {
-    len = getText(desc, outputbuf);
+    len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
   }
   if (len > 0) {
     (desc->nb_par_read) += 1;
@@ -102,11 +104,13 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
     err = U_ZERO_ERROR;
     dest = buf;
     src = outputbuf;
-    ucnv_toUnicode(desc->conv, &dest, dest + 2*INTERNAL_BUFSIZE,
-		   &src, outputbuf + strlen(outputbuf), NULL, FALSE, &err);
+    ucnv_toUnicode(desc->conv, &dest, dest + INTERNAL_BUFSIZE,
+		   &src, outputbuf + len, NULL, FALSE, &err);
     len = 2*(dest - buf);
     if (U_FAILURE(err)) {
-      fprintf(stderr, "Unable to convert buffer\n");
+      free(outputbuf);
+      outputbuf = NULL;
+      fprintf(stderr, "%s : Unable to convert buffer\n", desc->filename);
       return ERR_ICU;
     }
 

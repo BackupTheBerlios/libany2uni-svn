@@ -38,8 +38,10 @@ int escapeChar(char *buf, char *res);
  *
  * \param desc the document descriptor
  * \param buf the target buffer (MUST be initialized)
+ * \param size maximum size of buf
+ * \return the length of text read
  */
-int getText(struct doc_descriptor *desc, char *buf);
+int getText(struct doc_descriptor *desc, char *buf, int size);
 
 /**
  * get character encoding of file

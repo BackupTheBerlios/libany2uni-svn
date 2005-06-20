@@ -51,6 +51,9 @@ int initPlugin(struct doc_descriptor *desc) {
 
   /* check RTF header */
   if(strncmp(state->buf, "{\\rtf", 5)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "Error : %s is not an RTF file.\n", desc->filename);
     return ERR_UNKNOWN_FORMAT;
   }
@@ -90,6 +93,9 @@ int initPlugin(struct doc_descriptor *desc) {
   }
 
   if (U_FAILURE(err)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
@@ -103,7 +109,9 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
-  free(desc->myState);
+  if(desc->myState != NULL) {
+    free(desc->myState);
+  }
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

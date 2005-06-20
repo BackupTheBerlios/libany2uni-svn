@@ -41,10 +41,17 @@ int initPlugin(struct doc_descriptor *desc) {
   desc->myState = (struct pdfState *) malloc(sizeof(struct pdfState));
   desc->nb_pages_read = 0;
   desc->pageCount = 1;
+  ((struct pdfState *)(desc->myState))->cmaplist = NULL;
+  ((struct pdfState *)(desc->myState))->encodings = NULL;
+  ((struct pdfState *)(desc->myState))->filter = NULL;
+  ((struct pdfState *)(desc->myState))->XRef = NULL;
 
   ((struct pdfState *)(desc->myState))->version = version(desc->fd);
   if(((struct pdfState *)(desc->myState))->version < 0) {
-    fprintf(stderr, "not PDF file\n");
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
+    fprintf(stderr, "%s : not PDF file\n", desc->filename);
     return ERR_UNKNOWN_FORMAT;
   }
 
@@ -52,11 +59,24 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("latin1", &err);
   if (U_FAILURE(err)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
 
   if (initReader(desc) < 0) {
+    if(((struct pdfState *)(desc->myState))->glyphfile != -1) {
+      close(((struct pdfState *)(desc->myState))->glyphfile);
+    }
+    freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
+    freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
+    freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
+    freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     return INIT_ERROR;
   };
 
@@ -70,14 +90,16 @@ int initPlugin(struct doc_descriptor *desc) {
  *
  */
 int closePlugin(struct doc_descriptor *desc) {
-  if(((struct pdfState *)(desc->myState))->glyphfile != -1) {
-    close(((struct pdfState *)(desc->myState))->glyphfile);
+  if(desc->myState != NULL) {
+    if(((struct pdfState *)(desc->myState))->glyphfile != -1) {
+      close(((struct pdfState *)(desc->myState))->glyphfile);
+    }
+    freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
+    freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
+    freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
+    freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
+    free(desc->myState);
   }
-  freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
-  freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
-  freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
-  freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
-  free(desc->myState);
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

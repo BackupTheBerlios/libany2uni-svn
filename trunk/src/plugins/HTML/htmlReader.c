@@ -156,23 +156,23 @@ int escapeChar(char *buf, char *res) {
   }
 }
 
-int getText(struct doc_descriptor *desc, char *buf) {
+int getText(struct doc_descriptor *desc, char *buf, int size) {
   char buf2[BUFSIZE], esc[1];
-  int len, i, isMarkup, isJavascript, size;
+  int len, i, isMarkup, isJavascript, l;
   int dangerousCut, fini, r, offset, endOfFile, space_added;
 
   space_added = 0;
-  size = 0;
+  l = 0;
   fini = 0;
   endOfFile = 0;
   isJavascript = 0;
   dangerousCut = 0;
   isMarkup = 0;
   len = read(desc->fd, buf2, BUFSIZE);
-  while (!fini && len > 0 && size < INTERNAL_BUFSIZE){
+  while (!fini && len > 0 && l < size - 2){
 
     /* consuming buffer */
-    for (i = 0; i < len && !dangerousCut && !fini; i++) {
+    for (i = 0; l < size - 2 && i < len && !dangerousCut && !fini; i++) {
 
       /* end of buffer are possible points of failure
 	 if a markup or a token is cut, it will not be
@@ -190,7 +190,7 @@ int getText(struct doc_descriptor *desc, char *buf) {
       }
 
       /* detecting new paragraph */
-      if(size > 0 && !isJavascript && (!strncmp(buf2 + i, "<p", 2))) {
+      if(l > 0 && !isJavascript && (!strncmp(buf2 + i, "<p", 2))) {
 	fini = 1;
 	i+=2;
 	while( strncmp(buf2 + i, ">", 1) ) {
@@ -214,9 +214,9 @@ int getText(struct doc_descriptor *desc, char *buf) {
 
       /* detecting end of markup */
       if (!isJavascript && isMarkup && !strncmp(buf2 + i, "\x3e", 1)) {
-	if(!space_added && size > 0) {
-	  strncpy(buf + size, " ", 1);
-	  size++;
+	if(!space_added && l > 0) {
+	  strncpy(buf + l, " ", 1);
+	  l++;
 	  space_added = 1;
 	}
 	isMarkup = 0;
@@ -233,16 +233,16 @@ int getText(struct doc_descriptor *desc, char *buf) {
 	  if (!isJavascript && !isMarkup && !strncmp(buf2 + i, "\x26", 1)) {
 	    offset = escapeChar(buf2 + i, esc);
 	    if (strncmp(esc, " ", 1)) {
-	      strncpy(buf + size, esc, 1);
-	      size++;
+	      strncpy(buf + l, esc, 1);
+	      l++;
 	      space_added = 0;
 	    }
 	    i += (offset - 1);
 	  } else {
 
 	    /* filling output buffer */
-	    strncpy(buf + size, buf2 + i, 1);
-	    size++;
+	    strncpy(buf + l, buf2 + i, 1);
+	    l++;
 	    space_added = 0;
 	  }
 	}
@@ -267,16 +267,16 @@ int getText(struct doc_descriptor *desc, char *buf) {
   }
 
   /* ending buffer properly */
-  if ( size > 0 ) {
-    strncpy(buf + size, "\0", 1);
-  return size;
+  if ( l > 0 ) {
+    strncpy(buf + l, "\0", 1);
+  return l;
   }
 
   if(len == 0) {
     return NO_MORE_DATA;
   }
 
-  return size;
+  return l;
 }
 
 int getEncoding(int fd, char *encoding) {

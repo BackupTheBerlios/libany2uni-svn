@@ -41,9 +41,13 @@ extern FILE *fdopen(int fildes, const char *mode);
  * of the metadata
  */
 int initPlugin(struct doc_descriptor *desc) {
+  struct oleState* state;
   UErrorCode err;
 
   desc->myState = (struct oleState *) malloc(sizeof(struct oleState));
+  state = (struct oleState *)(desc->myState);
+  state->BBD = NULL;
+  state->SST = NULL;
 
   desc->fd = open(desc->filename, O_RDONLY);
 
@@ -51,11 +55,26 @@ int initPlugin(struct doc_descriptor *desc) {
   err = U_ZERO_ERROR;
   desc->conv = ucnv_open("latin1", &err);
   if (U_FAILURE(err)) {
+    free(desc->myState);
+    desc->myState = NULL;
+    close(desc->fd);
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
   }
 
   if(initOLE(desc)) {
+    if(state->BBD != NULL) {
+      freeBBD(state->BBD);
+      state->BBD = NULL;
+    }
+    if(state->SST != NULL) {
+      free(state->SST);
+      state->SST = NULL;
+    }
+    free(state);
+    desc->myState = NULL;
+    ucnv_close(desc->conv);
+    close(desc->fd);
     fprintf(stderr, "Can't initialize OLE reader\n");
     return INIT_ERROR;
   }
@@ -72,12 +91,19 @@ int closePlugin(struct doc_descriptor *desc) {
   struct oleState* state = (struct oleState *)(desc->myState);
   int i;
 
-  freeBBD(state->BBD);
-  for(i = 0; i < state->sstSize; i++) {
-    free(state->SST[i]);
+  if(desc->myState != NULL) {
+    
+    if(state->BBD != NULL) {
+      freeBBD(state->BBD);
+    }
+    if(state->SST != NULL) {
+      for(i = 0; i < state->sstSize; i++) {
+	free(state->SST[i]);
+      }
+      free(state->SST);
+    }
+    free(state);
   }
-  free(state->SST);
-  free(state);
   ucnv_close(desc->conv);
   close(desc->fd);
   return OK;

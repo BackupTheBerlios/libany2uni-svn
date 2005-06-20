@@ -46,6 +46,7 @@ int initPlugin(struct doc_descriptor *desc) {
 
   err = initTxt(desc);
   if(err) {
+    close(desc->fd);
     return err;
   }
 
@@ -95,6 +96,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 		   &src, outputbuf + len, NULL, FALSE, &err);
     len = 2*(dest - buf);
     if (U_FAILURE(err)) {
+      free(outputbuf);
+      outputbuf = NULL;
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }

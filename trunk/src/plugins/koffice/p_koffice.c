@@ -261,6 +261,8 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 		   &src, &outputbuf[strlen(outputbuf)], NULL, 0, &err);
     len = 2*(dest - buf);
     if (U_FAILURE(err)) {
+      free(outputbuf);
+      outputbuf = NULL;
       fprintf(stderr, "Unable to convert buffer\n");
       return ERR_ICU;
     }
