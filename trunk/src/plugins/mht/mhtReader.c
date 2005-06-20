@@ -30,6 +30,9 @@
 
 int initReader(struct doc_descriptor *desc) {
   struct mhtState *state = (struct mhtState *)(desc->myState);
+  UErrorCode err;
+  char encoding[40];
+  int i;
 
   /* search Content-Type */
   state->len = read(desc->fd, state->buf, BUFSIZE);
@@ -53,9 +56,102 @@ int initReader(struct doc_descriptor *desc) {
       state->cursor = 0;
     }
   }
+  state->cursor += 12;
+  if(state->cursor >= state->len - 12) {
+    strncpy(state->buf, state->buf + state->cursor,
+	    state->len - state->cursor);
+    state->len = read(desc->fd, state->buf + state->len - state->cursor,
+		      BUFSIZE - state->len + state->cursor)
+      + state->len - state->cursor;
+    if(state->len == 0) {
+      fprintf(stderr, "Unexpected end of file\n");
+      return INIT_ERROR;
+    }
+    state->cursor = 0;
+  }
+  state->cursor += 2;
+  state->monopart = 0;
+  if(!strncmp(state->buf + state->cursor, "text/html", 9)) {
 
-  /* search 'test/html' part */
-  if(getNextHTMLpart(desc)) {
+    /* unique html file */
+    state->monopart = 1;
+
+    /* get encoding */
+    for( ; strncmp(state->buf + state->cursor, "charset=\"", 9) &&
+	   strncmp(state->buf + state->cursor, "Content-", 8);
+	 state->cursor++) {
+      if(state->cursor >= state->len - 9) {
+	strncpy(state->buf, state->buf + state->cursor,
+		state->len - state->cursor);
+	state->len = read(desc->fd, state->buf + state->len - state->cursor,
+			  BUFSIZE - state->len + state->cursor)
+	  + state->len - state->cursor;
+	if(state->len == 0) {
+	  fprintf(stderr, "Unexpected end of file\n");
+	  return INIT_ERROR;
+	}
+	state->cursor = 0;
+      }
+    }  
+    if(strncmp(state->buf + state->cursor, "charset=\"", 9)) {
+      fprintf(stderr, "no charset found\n");
+      return ERR_KEYWORD;
+    }
+    state->cursor += 9;
+    
+    memset(encoding, '\x00', 40);
+    for(i = 0; strncmp(state->buf + state->cursor, "\"", 1);
+	i++, state->cursor++) {
+      if(state->cursor >= state->len) {
+	state->len = read(desc->fd, state->buf, BUFSIZE);
+	if(state->len == 0) {
+	  fprintf(stderr, "Unexpected end of file\n");
+	  return INIT_ERROR;
+	}
+	state->cursor = 0;
+      }    
+      strncpy(encoding + i, state->buf + state->cursor, 1);
+    }
+
+    /* initialize converter */
+    err = U_ZERO_ERROR;
+    desc->conv = ucnv_open(encoding, &err);
+    if (U_FAILURE(err)) {
+      fprintf(stderr, "Unable to open ICU converter\n");
+      return ERR_ICU;
+    }
+    
+    /* go to html beginning */
+    if(state->cursor >= state->len - 14) {
+      strncpy(state->buf, state->buf + state->cursor,
+	      state->len - state->cursor);
+      state->len = read(desc->fd, state->buf + state->len - state->cursor,
+			BUFSIZE - state->len + state->cursor)
+	+ state->len - state->cursor;
+      if(state->len == 0) {
+	fprintf(stderr, "Unexpected end of file\n");
+	return INIT_ERROR;
+      }
+      state->cursor = 0;
+    }
+    for( ; strncmp(state->buf + state->cursor, "<!DOCTYPE HTML", 14);
+	 state->cursor++) {
+      if(state->cursor >= state->len - 14) {
+	strncpy(state->buf, state->buf + state->cursor,
+		state->len - state->cursor);
+	state->len = read(desc->fd, state->buf + state->len - state->cursor,
+			  BUFSIZE - state->len + state->cursor)
+	  + state->len - state->cursor;
+	if(state->len == 0) {
+	  fprintf(stderr, "Unexpected end of file\n");
+	  return INIT_ERROR;
+	}
+	state->cursor = 0;
+      }
+    }    
+    
+    /* search 'test/html' part */
+  } else if(getNextHTMLpart(desc)) {
     return INIT_ERROR;
   }
 
@@ -84,7 +180,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
   }
   if(!strncmp(state->buf + state->cursor, "</HTML>", 7) ||
      !strncmp(state->buf + state->cursor, "</html>", 7)) {
-    if(getNextHTMLpart) {
+    if(state->monopart || getNextHTMLpart) {
       return NO_MORE_DATA;
     }
   }

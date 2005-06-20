@@ -151,6 +151,7 @@ struct mhtState {
   char buf[2048];                  /* buffer for file content */
   int  len;                        /* buffer length */
   int  cursor;                     /* current offset in buffer */
+  int  monopart;                   /* true if there is only 1 part */
 };
 
 
