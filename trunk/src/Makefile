@@ -26,7 +26,7 @@ test: $(OBJ)
 
 userInterface.o: userInterface.h misc.h
 
-fileMgr.o: fileMgr.h misc.h
+internals.o: internals.h misc.h
 
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
