@@ -2688,14 +2688,18 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
 
   /* get filters */
   for(i = 0; strncmp(srcbuf + i, "/Filter", 7)
-	&& strncmp(srcbuf + i, "stream", 6); i++) {}
+	&& strncmp(srcbuf + i, "stream", 6); i++) {
+    if(!strncmp(srcbuf + i, "%", 1)) {
+      i += getNextLine(srcbuf + i, len - i);
+    }
+  }
 
   if(!strncmp(srcbuf + i, "/Filter", 7)) {
     i += 7;
     for( ; !strncmp(srcbuf + i, " ", 1) ||
 	   !strncmp(srcbuf + i, "\x0A", 1) ||
 	   !strncmp(srcbuf + i, "\x0D", 1); i++) {}
-    
+
     if(!strncmp(srcbuf + i, "[", 1)) {
 
       /* multiple filters */
@@ -2767,6 +2771,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
     z.avail_out = BUFSIZE;
     z.next_out = outbuf;
     finish = inflate(&z, Z_SYNC_FLUSH);
+
     if(ascii85 == 2) {
       strncpy(buf2 + restlen, outbuf, BUFSIZE - z.avail_out);
       restlen = decodeASCII85(buf2, BUFSIZE - z.avail_out + restlen, buf, &destlen);
@@ -2776,7 +2781,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
       destlen = BUFSIZE - z.avail_out;
     }
     total += destlen;
-        
+
   } while(!finish && total <= state->offsetInStream + state->first);
 
   i = state->offsetInStream + state->first - total + destlen;
