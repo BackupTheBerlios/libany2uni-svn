@@ -32,14 +32,14 @@ internals.o: internals.h misc.h
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 install:
-	mkdir -p /usr/lib/libany2uni
-	mkdir -p /usr/include/libany2uni
+	mkdir -p /usr/local/lib/libany2uni
+	mkdir -p /usr/local/include/libany2uni
 	for DIR in $(PLUGINSDIR); do \
-		cp $$DIR/*.so  /usr/lib/libany2uni/ \
+		cp $$DIR/*.so  /usr/local/lib/libany2uni/ \
 	; done
-	cp $(EXEC) /usr/lib/
-	cp *.h /usr/include/libany2uni/
-	cp plugins/pdf/glyphlist.txt /usr/lib/libany2uni/
+	cp $(EXEC) /usr/local/lib/
+	cp *.h /usr/local/include/libany2uni/
+	cp plugins/pdf/glyphlist.txt /usr/local/lib/libany2uni/
 
 clean:
 	@for DIR in $(PLUGINSDIR); do \

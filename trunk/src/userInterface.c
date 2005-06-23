@@ -65,7 +65,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   switch(desc->format) {
 
   case ABIWORD :
-    handle = dlopen("/usr/lib/libany2uni/p_abi.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_abi.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_abi.so\n");
       return ERR_DLOPEN;
@@ -74,7 +74,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
   
   case SCRIBUS : 
-    handle = dlopen("/usr/lib/libany2uni/p_scribus.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_scribus.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_scribus.so\n");
       return ERR_DLOPEN;
@@ -82,7 +82,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
 
     break;
   case XMLDOC :
-    handle = dlopen("/usr/lib/libany2uni/p_xml.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_xml.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_xml.so\n");
       return ERR_DLOPEN;
@@ -93,7 +93,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case KWORD :
   case KSPREAD :
   case KPRESENTER:
-    handle = dlopen("/usr/lib/libany2uni/p_koffice.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_koffice.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_koffice.so\n");
       return ERR_DLOPEN;
@@ -102,7 +102,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case HTMLDOC :
-    handle = dlopen("/usr/lib/libany2uni/p_html.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_html.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_html.so\n");
       return ERR_DLOPEN;
@@ -114,7 +114,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   case OOCALC:
   case OOIMPRESS:
   case OODRAW:
-    handle = dlopen("/usr/lib/libany2uni/p_oo.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_oo.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_oo.so\n");
       return ERR_DLOPEN;
@@ -123,7 +123,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case LATEX :
-    handle = dlopen("/usr/lib/libany2uni/p_latex.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_latex.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_latex.so\n");
       return ERR_DLOPEN;
@@ -132,7 +132,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MSWORD :
-    handle = dlopen("/usr/lib/libany2uni/p_word.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_word.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_word.so\n");
       return ERR_DLOPEN;
@@ -141,7 +141,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case PDFDOC :
-    handle = dlopen("/usr/lib/libany2uni/p_pdf.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_pdf.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_pdf.so\n");
       return ERR_DLOPEN;
@@ -150,7 +150,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case RTFDOC :
-    handle = dlopen("/usr/lib/libany2uni/p_rtf.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_rtf.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_rtf.so\n");
       return ERR_DLOPEN;
@@ -159,7 +159,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MSEXCEL:
-    handle = dlopen("/usr/lib/libany2uni/p_excel.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_excel.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_excel.so\n");
       return ERR_DLOPEN;
@@ -168,7 +168,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MSPPT:
-    handle = dlopen("/usr/lib/libany2uni/p_powerpoint.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_powerpoint.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_powerpoint.so\n");
       return ERR_DLOPEN;
@@ -177,7 +177,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case TXT:
-    handle = dlopen("/usr/lib/libany2uni/p_txt.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_txt.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_txt.so\n");
       return ERR_DLOPEN;
@@ -186,7 +186,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     break;
 
   case MHT:
-    handle = dlopen("/usr/lib/libany2uni/p_mht.so", RTLD_LAZY);
+    handle = dlopen("/usr/local/lib/libany2uni/p_mht.so", RTLD_LAZY);
     if(handle == NULL) {
       fprintf(stderr, "Unable to open p_mht.so\n");
       return ERR_DLOPEN;

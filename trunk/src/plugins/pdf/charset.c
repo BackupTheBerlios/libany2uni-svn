@@ -652,7 +652,7 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
 	return OK;
       }
       if(state->glyphfile == -1) {
-	state->glyphfile = open("/usr/lib/libany2uni/glyphlist.txt", O_RDONLY);
+	state->glyphfile = open("/usr/local/lib/libany2uni/glyphlist.txt", O_RDONLY);
       }
       lseek(state->glyphfile, 0, SEEK_SET);
       len = read(state->glyphfile, buf, BUFSIZE);
