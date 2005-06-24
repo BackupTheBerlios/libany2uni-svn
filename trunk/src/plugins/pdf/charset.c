@@ -607,6 +607,7 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
   UChar dest[6];
   UErrorCode err;
   char src[2], name[40], buf[BUFSIZE], value[6];
+  char glyphpath[512];
   int len, i, v;
 
   memset(dest, '\x00', 6);
@@ -652,7 +653,9 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
 	return OK;
       }
       if(state->glyphfile == -1) {
-	state->glyphfile = open("/usr/local/lib/libany2uni/glyphlist.txt", O_RDONLY);
+	memset(glyphpath, '\x00', 512);
+	sprintf(glyphpath, "%s/libany2uni/glyphlist.txt", INSTALL_PATH);
+	state->glyphfile = open(glyphpath, O_RDONLY);
       }
       lseek(state->glyphfile, 0, SEEK_SET);
       len = read(state->glyphfile, buf, BUFSIZE);

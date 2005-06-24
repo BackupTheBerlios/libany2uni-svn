@@ -27,7 +27,7 @@
 #define __MISC_H__
 
 #include <stdio.h>
-#include <libany2uni/unzip.h>
+#include "unzip.h"
 #include <sys/types.h>
 #include <unicode/utypes.h>
 #include <unicode/ustring.h>
@@ -36,6 +36,10 @@
 #include <expat.h>
 
 #define INTERNAL_BUFSIZE 5000
+
+#ifndef INSTALL_DIR
+#define INSTALL_DIR "/usr/local/lib"
+#endif
 
 /*
  * codes for file formats

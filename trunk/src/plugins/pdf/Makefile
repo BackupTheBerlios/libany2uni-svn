@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -Wall -ansi
+CFLAGS= -Wall -ansi -DINSTALL_PATH="\"$(libdir)\""
 LDFLAGS= -Wall -ansi
 EXEC= p_pdf.so
 SRC= $(wildcard *.c)

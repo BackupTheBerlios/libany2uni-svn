@@ -1,10 +1,13 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
-CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing
+CFLAGS=  -O3 -Wall -ansi -fno-strict-aliasing -DINSTALL_PATH="\"$(MAKE_DIR)\"" -DINCLUDE_PATH="\"$(INCLUDE_DIR)\""
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
 LIBS= -licui18n -ldl -lz
+prefix= /usr/local
+libdir= $(prefix)/lib
+includedir= $(prefix)/include
 PLUGINSDIR = plugins/abiword plugins/HTML plugins/koffice plugins/latex \
 	plugins/openoffice plugins/pdf plugins/scribus plugins/word \
 	plugins/XML plugins/rtf plugins/excel plugins/powerpoint \
@@ -14,13 +17,13 @@ all: $(EXEC)
 
 $(EXEC): $(OBJ)
 	@for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && make ; cd ../.. \
+		cd $$DIR  && $(MAKE) libdir=$(libdir) ; cd ../.. \
 	; done
 	$(CC) -o $@ -shared $^ $(LDFLAGS) $(LIBS)
 
 test: $(OBJ)
 	@for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && make ; cd ../.. \
+		cd $$DIR  && $(MAKE) libdir=$(libdir) ; cd ../.. \
 	; done
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 
@@ -32,23 +35,23 @@ internals.o: internals.h misc.h
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 install:
-	mkdir -p /usr/local/lib/libany2uni
-	mkdir -p /usr/local/include/libany2uni
+	mkdir -p $(libdir)/libany2uni
+	mkdir -p $(includedir)/libany2uni
 	for DIR in $(PLUGINSDIR); do \
-		cp $$DIR/*.so  /usr/local/lib/libany2uni/ \
+		cp $$DIR/*.so  $(libdir)/libany2uni/ \
 	; done
-	cp $(EXEC) /usr/local/lib/
-	cp *.h /usr/local/include/libany2uni/
-	cp plugins/pdf/glyphlist.txt /usr/local/lib/libany2uni/
+	cp $(EXEC) $(libdir)/
+	cp *.h $(includedir)/libany2uni/
+	cp plugins/pdf/glyphlist.txt $(libdir)/libany2uni/
 
 clean:
 	@for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && make clean ; cd ../.. \
+		cd $$DIR  && $(MAKE) clean ; cd ../.. \
 	; done
 	rm -rf *.o
 
 distclean : clean
 	@for DIR in $(PLUGINSDIR); do \
-		cd $$DIR  && make distclean ; cd ../.. \
+		cd $$DIR  && $(MAKE) distclean ; cd ../.. \
 	; done
 	rm -rf test *.so
