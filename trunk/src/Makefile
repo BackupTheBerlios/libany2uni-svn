@@ -1,6 +1,6 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
-CFLAGS=  -O3 -Wall -ansi -fno-strict-aliasing -DINSTALL_PATH="\"$(MAKE_DIR)\"" -DINCLUDE_PATH="\"$(INCLUDE_DIR)\""
+CFLAGS=  -O3 -Wall -ansi -fno-strict-aliasing -DINSTALL_PATH="\"$(libdir)\"" -DINCLUDE_PATH="\"$(includedir)\""
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
