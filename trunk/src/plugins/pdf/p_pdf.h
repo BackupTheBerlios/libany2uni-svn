@@ -162,7 +162,7 @@ int getNumber(char *buf);
  * \param buf buffer containing the dictionary
  * \param size input buffer size
  * \param name name of the field
- * \value output string for value
+ * \param value output string for value
  * \return 0 for success, -1 if not found
  */
 int getValue(struct doc_descriptor *desc, char *buf, int size, char *name, char *value);
