@@ -83,6 +83,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
+  memset(outputbuf, '\x00', INTERNAL_BUFSIZE);
   len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
   
   if (len > 0) {

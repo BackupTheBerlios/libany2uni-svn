@@ -95,6 +95,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
 
   /* reading the next paragraph */
   while (len == 0) {
+    memset(outputbuf, '\x00', INTERNAL_BUFSIZE);
     len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
   }
   if (len > 0) {

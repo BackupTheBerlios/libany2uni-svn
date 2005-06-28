@@ -246,6 +246,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   UErrorCode err;
 
   len = 0;
+  memset(outputbuf, '\x00', INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
   len = parse(desc, outputbuf);

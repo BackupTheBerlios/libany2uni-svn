@@ -33,7 +33,7 @@
 #define DEFAULT  0
 
 void usage() {
-  printf("wrong command\nusage : ./simpleExtract -[option] <document>\n");
+  printf("wrong command\nusage : ./any2utf8 -[option] <document>\n");
   printf("   options :     -m : get metadata\n");
 }
 
@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
   if(mode == DEFAULT) {
 
     /* read next paragraph */
+    memset(ubuf, '\x00', 10000);
     while (read_content(&d, ubuf) >= 0) {
 
       /* get the needed size for output string */
@@ -97,9 +98,10 @@ int main(int argc, char *argv[]) {
       /* printing result to standard output */
       printf("%s ", out);
 
-      memcpy(ubuf, "\0\0", 2);
+      memset(ubuf, '\x00', 10000);
       free(out);    
     }
+    printf("\n");
   } else if (mode == METADATA) {
     
     /* reading the whole file first to ensure that

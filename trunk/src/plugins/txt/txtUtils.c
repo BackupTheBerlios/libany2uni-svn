@@ -63,6 +63,10 @@ int getText(struct doc_descriptor *desc, char *out, int size) {
   if(l > 0) {
     lseek(desc->fd, i - len, SEEK_CUR);
     return l;
+  } else if(len > 0 && (!strncmp(buf + i, "\n", 1) ||
+			!strncmp(buf + i, "\r", 1))){
+    lseek(desc->fd, i - len + 1, SEEK_CUR);
+    return 0;
   } else {
     return NO_MORE_DATA;
   }

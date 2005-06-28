@@ -222,6 +222,7 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
 
   /* reading the next paragraph */
+  memset(outputbuf, '\x00', INTERNAL_BUFSIZE);
   len = parse(desc, outputbuf);
   
   if (len > 0) {
