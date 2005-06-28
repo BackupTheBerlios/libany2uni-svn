@@ -671,7 +671,7 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 	      tfilter = identifyFilter(tmp);
 	      switch (tfilter) {
 	      case lzw:
-		fprintf(stderr, "LZW desompression not implemented\n");
+		fprintf(stderr, "LZW decompression not implemented\n");
 		state->currentStream = -1;
 		return NO_MORE_DATA;
 		break;
@@ -745,7 +745,7 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 	  tfilter = identifyFilter(tmp);
 	  switch (tfilter) {
 	  case lzw:
-	    fprintf(stderr, "LZW desompression not implemented\n");
+	    fprintf(stderr, "LZW decompression not implemented\n");
 	    state->currentStream = -1;
 	    return NO_MORE_DATA;
 	    break;
@@ -1581,7 +1581,6 @@ int initReader(struct doc_descriptor *desc) {
       return ERR_DICTIONARY;
     }
   }
-
   return OK;
 }
 

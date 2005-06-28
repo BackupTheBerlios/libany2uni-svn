@@ -43,6 +43,8 @@
  */
 int initPlugin(struct doc_descriptor *desc) {
   UErrorCode err;
+  char buf[BUFSIZE], encoding[30];
+  int len, i, j;
 
   desc->fd = open(desc->filename, O_RDONLY);
   desc->parser = XML_ParserCreate(NULL);
@@ -54,9 +56,22 @@ int initPlugin(struct doc_descriptor *desc) {
   ((struct ParserState *)(desc->myState))->suspended = 0;
   ((struct ParserState *)(desc->myState))->pparser = &(desc->parser);
 
-  /* initialize converter ( content is utf8 ) */
+  /* detect encoding (if any) */
+  len = read(desc->fd, buf, BUFSIZE);
+  for(i = 0; i < len - 10 && strncmp(buf + i, "encoding=\"", 10); i++) {}
+  memset(encoding, '\x00', 30);
+  if(!strncmp(buf + i, "encoding=\"", 10)) {
+    i += 10;
+    for(j = 0 ; i + j < len && strncmp(buf + i, "\"", 1); j++) {
+      strncpy(encoding + j, buf + i + j, 1);
+    }
+  } else {
+    strncpy(encoding, "utf8", 4);
+  }
+
+  /* initialize converter */
   err = U_ZERO_ERROR;
-  desc->conv = ucnv_open("utf8", &err);
+  desc->conv = ucnv_open(encoding, &err);
   if (U_FAILURE(err)) {
     fprintf(stderr, "%s : Unable to open ICU converter\n", desc->filename);
     free(desc->myState);

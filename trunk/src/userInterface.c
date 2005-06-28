@@ -239,6 +239,8 @@ int closeDocument(struct doc_descriptor *desc) {
   int (*closePlugin)(struct doc_descriptor *);
   struct meta meta;
 
+  if(desc->myState != NULL) {
+
   /* free metadata structures */
   meta.name = meta.value = NULL;
   while (read_meta(desc, &meta) >=0) {
@@ -265,7 +267,7 @@ int closeDocument(struct doc_descriptor *desc) {
     fprintf(stderr, "Unable to close plugin\n");
     return ERR_DLCLOSE;
   }
-
+  } else {printf("finfi\n");}
   return OK;
 }
 
