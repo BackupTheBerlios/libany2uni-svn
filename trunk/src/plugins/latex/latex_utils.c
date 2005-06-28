@@ -294,7 +294,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    }
 	    if (!strncmp(inbuf + i + 1, "{", 1) || !strncmp(inbuf + i + 1, "[", 1)) {
 	      depth++;
-	      i++;
+	      
 	      nodepth = 0;
 	    } else if (!strncmp(inbuf + i + 1, "}", 1) || !strncmp(inbuf + i + 1, "]", 1)) {
 	      depth--;
@@ -302,7 +302,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    if (!depth && !nodepth) {
 	      if (!strncmp(inbuf + i + 1, "{", 1) || !strncmp(inbuf + i + 1, "[", 1)) {
 		depth++;
-		i++;
+		
 	      }
 	    }
 	  }
@@ -310,7 +310,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    len = read(desc->fd, inbuf, BUFSIZE);
 	    i = 0;
 	  }
-	  i--;
+	  i--;i--;
 	  break;
 	  
 	case replace_by_space:

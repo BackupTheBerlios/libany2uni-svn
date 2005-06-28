@@ -241,33 +241,33 @@ int closeDocument(struct doc_descriptor *desc) {
 
   if(desc->myState != NULL) {
 
-  /* free metadata structures */
-  meta.name = meta.value = NULL;
-  while (read_meta(desc, &meta) >=0) {
-    if(meta.name != NULL) {
-      free(meta.name);
-      meta.name = NULL;
+    /* free metadata structures */
+    meta.name = meta.value = NULL;
+    while (read_meta(desc, &meta) >=0) {
+      if(meta.name != NULL) {
+	free(meta.name);
+	meta.name = NULL;
+      }
+      if(meta.value != NULL) {
+	free(meta.value);
+	meta.value = NULL;
+      }
     }
-    if(meta.value != NULL) {
-      free(meta.value);
-      meta.value = NULL;
+
+    /* closing the plugin */
+    *(void **)(&closePlugin) = dlsym(desc->plugin_handle, "closePlugin");
+
+    if (*(void **)(&closePlugin) == NULL ) {
+      return ERR_DLSYM;
+    }
+    (*closePlugin)(desc);
+
+    /* unloading the plugin */
+    if (dlclose(desc->plugin_handle)) {
+      fprintf(stderr, "Unable to close plugin\n");
+      return ERR_DLCLOSE;
     }
   }
-
-  /* closing the plugin */
-  *(void **)(&closePlugin) = dlsym(desc->plugin_handle, "closePlugin");
-
-  if (*(void **)(&closePlugin) == NULL ) {
-    return ERR_DLSYM;
-  }
-  (*closePlugin)(desc);
-
-  /* unloading the plugin */
-  if (dlclose(desc->plugin_handle)) {
-    fprintf(stderr, "Unable to close plugin\n");
-    return ERR_DLCLOSE;
-  }
-  } else {printf("finfi\n");}
   return OK;
 }
 
