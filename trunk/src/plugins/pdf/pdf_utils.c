@@ -1362,7 +1362,7 @@ int initReader(struct doc_descriptor *desc) {
   }
   strncpy(tmp + t, "\0", 1);
   state->xref = atoi(tmp);
-  
+
   /* get xref */
   lseek(desc->fd, state->xref, SEEK_SET);
   if(getXRef(desc)) {

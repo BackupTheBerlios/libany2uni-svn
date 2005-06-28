@@ -5,7 +5,7 @@ HOW TO INSTALL THE ANY2UNI LIBRARY
 Requirements:
 -------------
 In order to compile the library, you need to have the followings installed:
-	-> ICU 2.1-2
+	-> ICU 2.1-2 or ICU 3.4
 	-> libexpat 1.95.8-1
 	-> zlib
 
@@ -23,11 +23,15 @@ Enter root user mode.
 Then, compile and install:
 	make
 	make install
+By default, the library is installed in /usr/local. You can give another
+install directory with the argument 'prefix=<your_directory>' after 'make'
+and 'make install'.
+
 If you want to remove junk:
 	make clean
 To remove all generated files:
 	make distclean
-	(this won't delete files installed in /usr/lib/)
+	(this won't delete installed files)
 
 
 DOCUMENTATION:
@@ -40,4 +44,5 @@ USING THE LIBRARY:
 ------------------
 To use the library, all you need to do is to include
 <libany2uni/userInterface.h>. You have to compile using the
--lany2uni option.
+-lany2uni option. (check that your install directory is set
+in /etc/ld.so.conf).

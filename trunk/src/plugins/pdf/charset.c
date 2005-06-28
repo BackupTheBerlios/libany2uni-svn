@@ -802,11 +802,14 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
   if(strncmp(buf + i + j, "/", 1) && strncmp(buf + i + j, ">>", 2)) {
     j++;
   }
+  for( ; !strncmp(buf + i + j, " ", 1) ||
+	 !strncmp(buf + i + j, "\x0A", 1) ||
+	 !strncmp(buf + i + j, "\x0D", 1); j++) {}
   if(!strncmp(buf + i + j, "/", 1) || !strncmp(buf + i + j, ">>", 2)) {
     
     /* Length is an integer */
     state->streamlength = state->length = getNumber(buf + i);
-    
+
     /* Length is a reference */
   } else {
     gotoRef(desc, getNumber(buf + i));

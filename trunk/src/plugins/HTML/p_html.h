@@ -27,11 +27,12 @@
 /**
  * handles special characters like '&amp;'
  *
+ * \param desc the document descriptor
  * \param buf the input token
  * \param res the target string (MUST be initialized)
  * \return the length of the input token
  */
-int escapeChar(char *buf, char *res);
+int escapeChar(struct doc_descriptor *desc, char *buf, char *res);
 
 /**
  * get the next 'paragraph'

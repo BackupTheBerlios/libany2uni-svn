@@ -28,7 +28,8 @@
 #define BUFSIZE 2048
 
 
-int escapeChar(char *buf, char *res) {
+int escapeChar(struct doc_descriptor *desc, char *buf, char *res) {
+  UErrorCode err;
   char token[9];
   int i;
 
@@ -43,112 +44,147 @@ int escapeChar(char *buf, char *res) {
   } else {
 
     /* if it does not seem to be a token, result is '&' */
-    strncpy(res, "&", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "&", 1, &err);
     return 1;
   }
 
   /* identifying token */
   if (!strncmp(token, "&amp;", 5)) {
-    strncpy(res, "&", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "&", 1, &err);
     return 5;
   } else if (!strncmp(token, "&lt;", 4)) {
-    strncpy(res, "<", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "<", 1, &err);
     return 4;
   } else if (!strncmp(token, "&gt;", 4)) {
-    strncpy(res, ">", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, ">", 1, &err);
     return 4;
   } else if (!strncmp(token, "&quot;", 6)) {
-    strncpy(res, "\x22", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\x22", 1, &err);
     return 6;
   } else if (!strncmp(token, "&eacute;", 8)) {
-    strncpy(res, "\xe9", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xe9", 1, &err);
     return 8;
   } else if (!strncmp(token, "&Eacute;", 8)) {
-    strncpy(res, "\xc9", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xc9", 1, &err);
     return 8;
   } else if (!strncmp(token, "&egrave;", 8)) {
-    strncpy(res, "\xe8", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xe8", 1, &err);
     return 8;
   } else if (!strncmp(token, "&ecirc;", 7)) {
-    strncpy(res, "\xea", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xea", 1, &err);
     return 7;
   } else if (!strncmp(token, "&agrave;", 8)) {
-    strncpy(res, "\xe0", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xe0", 1, &err);
     return 8;
   } else if (!strncmp(token, "&iuml;", 6)) {
-    strncpy(res, "\xef", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xef", 1, &err);
     return 6;
   } else if (!strncmp(token, "&ccedil;", 8)) {
-    strncpy(res, "\xe7", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xe7", 1, &err);
     return 8;
   } else if (!strncmp(token, "&ntilde;", 8)) {
-    strncpy(res, "\xf1", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xf1", 1, &err);
     return 8;
   } else if (!strncmp(token, "&copy;", 6)) {
-    strncpy(res, "\xa9", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xa9", 1, &err);
     return 6;
   } else if (!strncmp(token, "&#169;", 6)) {
-    strncpy(res, "\xa9", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xa9", 1, &err);
     return 6;
   } else if (!strncmp(token, "&reg;", 5)) {
-    strncpy(res, "\xae", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xae", 1, &err);
     return 5;
   } else if (!strncmp(token, "&#174;", 6)) {
-    strncpy(res, "\xae", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xae", 1, &err);
     return 6;
   } else if (!strncmp(token, "&deg;", 5)) {
-    strncpy(res, "\xb0", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb0", 1, &err);
     return 5;
   } else if (!strncmp(token, "&#176;", 6)) {
-    strncpy(res, "\xb0", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb0", 1, &err);
     return 6;
   } else if (!strncmp(token, "&ordm;", 6)) {
-    strncpy(res, "\xba", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xba", 1, &err);
     return 6;
   } else if (!strncmp(token, "&laquo;", 7)) {
-    strncpy(res, "\xab", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xab", 1, &err);
     return 7;
   } else if (!strncmp(token, "&#171;", 6)) {
-    strncpy(res, "\xab", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xab", 1, &err);
     return 6;
   } else if (!strncmp(token, "&raquo;", 7)) {
-    strncpy(res, "\xbb", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbb", 1, &err);
     return 7;
   } else if (!strncmp(token, "&#187;", 6)) {
-    strncpy(res, "\xbb", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbb", 1, &err);
     return 6;
   } else if (!strncmp(token, "&micro;", 7)) {
-    strncpy(res, "\xb5", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb5", 1, &err);
     return 7;
   } else if (!strncmp(token, "&#181;", 6)) {
-    strncpy(res, "\xb5", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb5", 1, &err);
     return 6;
   } else if (!strncmp(token, "&para;", 6)) {
-    strncpy(res, "\xb6", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb6", 1, &err);
     return 6;
   } else if (!strncmp(token, "&#182;", 6)) {
-    strncpy(res, "\xb6", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xb6", 1, &err);
     return 6;
   } else if (!strncmp(token, "&frac14;", 8)) {
-    strncpy(res, "\xbc", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbc", 1, &err);
     return 8;
   } else if (!strncmp(token, "&#188;", 6)) {
-    strncpy(res, "\xbc", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbc", 1, &err);
     return 6;
   } else if (!strncmp(token, "&frac12;", 8)) {
-    strncpy(res, "\xbd", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbd", 1, &err);
     return 8;
   } else if (!strncmp(token, "&#189;", 6)) {
-    strncpy(res, "\xbd", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbd", 1, &err);
     return 6;
   } else if (!strncmp(token, "&frac34;", 8)) {
-    strncpy(res, "\xbe", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbe", 1, &err);
     return 8;
   } else if (!strncmp(token, "&#190;", 6)) {
-    strncpy(res, "\xbe", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\xbe", 1, &err);
     return 6;
   } else if (!strncmp(token, "&#156;", 6)) {
-    strncpy(res, "\x9c", 1);
+    err = U_ZERO_ERROR;
+    ucnv_convert(ucnv_getName(desc->conv, &err), "latin1", res, 2, "\x9c", 1, &err);
     return 6;
   } else {
     strncpy(res, " ", 1);
@@ -157,7 +193,7 @@ int escapeChar(char *buf, char *res) {
 }
 
 int getText(struct doc_descriptor *desc, char *buf, int size) {
-  char buf2[BUFSIZE], esc[1];
+  char buf2[BUFSIZE], esc[2];
   int len, i, isMarkup, isJavascript, l;
   int dangerousCut, fini, r, offset, endOfFile, space_added;
 
@@ -231,7 +267,8 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	  
 	  /* converting tokens */
 	  if (!isJavascript && !isMarkup && !strncmp(buf2 + i, "\x26", 1)) {
-	    offset = escapeChar(buf2 + i, esc);
+	    memset(esc, '\x00', 2);
+	    offset = escapeChar(desc, buf2 + i, esc);
 	    if (strncmp(esc, " ", 1)) {
 	      strncpy(buf + l, esc, 1);
 	      l++;

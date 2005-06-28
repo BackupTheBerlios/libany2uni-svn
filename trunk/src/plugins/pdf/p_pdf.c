@@ -115,7 +115,6 @@ int p_read_content(struct doc_descriptor *desc, UChar *buf) {
   int len;
 
   len = 0;
-
   /* reading the next paragraph */
   len = getText(desc, buf, 2*INTERNAL_BUFSIZE);
 
