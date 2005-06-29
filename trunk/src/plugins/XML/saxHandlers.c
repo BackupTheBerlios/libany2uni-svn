@@ -32,18 +32,22 @@
 
 void XMLCALL characters(void *user_data, const char *ch, int len) {
   char *ch2;
+  int i;
 
-  if (strncmp(ch, "\n", 1) && strncmp(ch, "\t", 1) && strncmp(ch, " ", 1)){
-    ch2 = (char *) malloc(len + 1);
-    strncpy(ch2, ch, len);
-    strncpy(ch2 + len, "\0", 1);
+  for(i = 0; i < len && (!strncmp(ch + i, " ", 1) ||
+			 !strncmp(ch + i, "\n", 1) ||
+			 !strncmp(ch + i, "\t", 1)); i++) {}
+  if(i != len) {
+    ch2 = (char *) malloc(len + 1 - i);
+    strncpy(ch2, ch + i, len - i);
+    strncpy(ch2 + len - i, "\0", 1);
     if (((struct ParserState *)user_data)->chlen + strlen(ch2) >= INTERNAL_BUFSIZE) {
       strncpy(ch2 + INTERNAL_BUFSIZE - ((struct ParserState *)user_data)->chlen, "\0", 1);
     }
     sprintf(((struct ParserState *)user_data)->ch +
 	    ((struct ParserState *)user_data)->chlen, "%s", ch2);
     ((struct ParserState *)user_data)->chlen += strlen(ch2);
-
+    
     free(ch2);
   }
 }

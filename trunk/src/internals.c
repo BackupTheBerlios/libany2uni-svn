@@ -84,7 +84,8 @@ int format_detection(char *filename) {
     return OOIMPRESS;
   } else if (!memcmp(extension, "sxd", 3)) {
     return OODRAW;
-  } else if (!memcmp(extension, "xml", 3)) {
+  } else if (!memcmp(extension, "xml", 3) ||
+	     !memcmp(extension, "svg", 3)) {
     return XMLDOC;
   } else if (!memcmp(extension, "htm", 3)
 	     || !memcmp(extension, "html", 4)) {

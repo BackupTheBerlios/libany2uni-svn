@@ -84,41 +84,17 @@ int closePlugin(struct doc_descriptor *desc) {
  * reads the next paragraph and converts to UTF-16
  */
 int p_read_content(struct doc_descriptor *desc, UChar *buf) {
-  char *outputbuf, *src;
-  UChar *dest;
   int len;
-  UErrorCode err;
 
   len = 0;
 
-  outputbuf = (char *) malloc(INTERNAL_BUFSIZE);
-
   /* reading the next paragraph */
   while (len == 0) {
-    memset(outputbuf, '\x00', INTERNAL_BUFSIZE);
-    len = getText(desc, outputbuf, INTERNAL_BUFSIZE);
+    memset(buf, '\x00', 10000);
+    len = getText(desc, buf, 10000);
   }
   if (len > 0) {
     (desc->nb_par_read) += 1;
-
-    /* converting to UTF-16 */
-    err = U_ZERO_ERROR;
-    dest = buf;
-    src = outputbuf;
-    ucnv_toUnicode(desc->conv, &dest, dest + INTERNAL_BUFSIZE,
-		   &src, outputbuf + len, NULL, FALSE, &err);
-    len = 2*(dest - buf);
-    if (U_FAILURE(err)) {
-      free(outputbuf);
-      outputbuf = NULL;
-      fprintf(stderr, "%s : Unable to convert buffer\n", desc->filename);
-      return ERR_ICU;
-    }
-
-  }
-
-  if(outputbuf != NULL) {
-    free(outputbuf);
   }
 
   return len;

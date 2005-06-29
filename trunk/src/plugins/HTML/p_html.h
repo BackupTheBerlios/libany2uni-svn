@@ -32,7 +32,7 @@
  * \param res the target string (MUST be initialized)
  * \return the length of the input token
  */
-int escapeChar(struct doc_descriptor *desc, char *buf, char *res);
+int escapeChar(struct doc_descriptor *desc, char *buf, UChar *res);
 
 /**
  * get the next 'paragraph'
@@ -42,7 +42,7 @@ int escapeChar(struct doc_descriptor *desc, char *buf, char *res);
  * \param size maximum size of buf
  * \return the length of text read
  */
-int getText(struct doc_descriptor *desc, char *buf, int size);
+int getText(struct doc_descriptor *desc, UChar *buf, int size);
 
 /**
  * get character encoding of file

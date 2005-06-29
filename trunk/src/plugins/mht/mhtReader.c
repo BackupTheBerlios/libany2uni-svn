@@ -160,9 +160,12 @@ int initReader(struct doc_descriptor *desc) {
 }
 
 
-int getText(struct doc_descriptor *desc, char *buf, int size) {
+int getText(struct doc_descriptor *desc, UChar *buf, int size) {
   struct mhtState *state = (struct mhtState *)(desc->myState);
-  char esc[1], tmp[2];
+  UErrorCode err;
+  char *src;
+  UChar *dest, esc[3];
+  char tmp[2];
   int l, i, v;
 
   l = 0;
@@ -208,7 +211,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	  state->cursor = 0;
 	}
       }
-      state->cursor+=9;
+      state->cursor += 9;
       if(state->cursor >= state->len - 7) {
 	strncpy(state->buf, state->buf + state->cursor,
 		state->len - state->cursor);
@@ -254,8 +257,8 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	state->cursor = 0;
       }
       if(l > 0) {
-	strncpy(buf + l, " ", 1);
-	l++;
+	memcpy(buf + l/2, "\x20\x00", 1);
+	l += 2;
 	return l;
       }
 
@@ -291,8 +294,8 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	state->cursor = 0;
       }
 
-      strncpy(buf + l, " ", 1);
-      l++;
+      memcpy(buf + l/2, "\x20\x00", 2);
+      l += 2;
       if(l >= size - 2) {
 	return l;
       }
@@ -346,11 +349,11 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	    v += atoi(tmp);
 	  }
 	}
-	sprintf(buf + l, "%c", v);
-	l++;
+	buf[l/2] = v;
+	l += 2;
 	if(l >= size - 2) {
-	  strncpy(buf + l, " ", 1);
-	  l++;
+	  memcpy(buf + l, "\x20\x00", 2);
+	  l += 2;
 	  return l;
 	}
 
@@ -372,12 +375,13 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	}
 	state->cursor = 0;
       }
+      memset(esc, '\x00', 6);
       state->cursor += escapeChar(state->buf + state->cursor, esc);
-      strncpy(buf + l, esc, 1);
-      l++;
+      memcpy(buf + l/2, esc, 2*u_strlen(esc));
+      l += 2*u_strlen(esc);
       if(l >= size - 2) {
-	strncpy(buf + l, " ", 1);
-	l++;
+	memcpy(buf + l, "\x20\x00", 2);
+	l += 2;
 	return l;
       }
 
@@ -385,11 +389,22 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
     } else {
       if(strncmp(state->buf + state->cursor, "\x0A", 1) &&
 	 strncmp(state->buf + state->cursor, "\x0D", 1)) {
-	strncpy(buf + l, state->buf + state->cursor, 1);
-	l++;
+
+	dest = buf + l/2;
+	src = state->buf + state->cursor;
+	err = U_ZERO_ERROR;
+	ucnv_toUnicode(desc->conv, &dest, buf + size/2,
+		       &src, state->buf + state->cursor + 1,
+		       NULL, FALSE, &err);
+	if (U_FAILURE(err)) {
+	  fprintf(stderr, "Unable to convert buffer\n");
+	  return ERR_ICU;
+	}
+	l+= 2*(dest - buf - l/2);
+
 	if(l >= size - 2) {
-	  strncpy(buf + l, " ", 1);
-	  l++;
+	  memcpy(buf + l, "\x20\x00", 2);
+	  l += 2;
 	  return l;
 	}
       }
@@ -410,8 +425,8 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
   }
 
   if(l > 0) {
-    strncpy(buf + l, " ", 1);
-    l++;
+    memcpy(buf + l, "\x20\x00", 2);
+    l += 2;
   }
   return l;
 }
@@ -612,7 +627,7 @@ int getNextHTMLpart(struct doc_descriptor *desc) {
 }
 
 
-int escapeChar(char *buf, char *res) {
+int escapeChar(char *buf, UChar *res) {
   char token[9];
   int i;
 
@@ -627,115 +642,88 @@ int escapeChar(char *buf, char *res) {
   } else {
 
     /* if it does not seem to be a token, result is '&' */
-    strncpy(res, "&", 1);
+    memcpy(res, "\x26\x00", 2);
     return 1;
   }
 
   /* identifying token */
   if (!strncmp(token, "&amp;", 5)) {
-    strncpy(res, "&", 1);
+    memcpy(res, "\x26\x00", 2);
     return 5;
   } else if (!strncmp(token, "&lt;", 4)) {
-    strncpy(res, "<", 1);
+    memcpy(res, "\x3C\x00", 2);
     return 4;
   } else if (!strncmp(token, "&gt;", 4)) {
-    strncpy(res, ">", 1);
+    memcpy(res, "\x3E\x00", 2);
     return 4;
   } else if (!strncmp(token, "&quot;", 6)) {
-    strncpy(res, "\x22", 1);
+    memcpy(res, "\x22\x00", 2);
     return 6;
   } else if (!strncmp(token, "&eacute;", 8)) {
-    strncpy(res, "\xe9", 1);
+    memcpy(res, "\xE9\x00", 2);
     return 8;
   } else if (!strncmp(token, "&Eacute;", 8)) {
-    strncpy(res, "\xc9", 1);
+    memcpy(res, "\xC9\x00", 2);
     return 8;
   } else if (!strncmp(token, "&egrave;", 8)) {
-    strncpy(res, "\xe8", 1);
+    memcpy(res, "\xE8\x00", 2);
+    return 8;
+  } else if (!strncmp(token, "&Egrave;", 8)) {
+    memcpy(res, "\xC8\x00", 2);
     return 8;
   } else if (!strncmp(token, "&ecirc;", 7)) {
-    strncpy(res, "\xea", 1);
+    memcpy(res, "\xEA\x00", 2);
     return 7;
   } else if (!strncmp(token, "&agrave;", 8)) {
-    strncpy(res, "\xe0", 1);
+    memcpy(res, "\xE0\x00", 2);
     return 8;
   } else if (!strncmp(token, "&iuml;", 6)) {
-    strncpy(res, "\xef", 1);
+    memcpy(res, "\xEF\x00", 2);
     return 6;
   } else if (!strncmp(token, "&ccedil;", 8)) {
-    strncpy(res, "\xe7", 1);
+    memcpy(res, "\xE7\x00", 2);
     return 8;
   } else if (!strncmp(token, "&ntilde;", 8)) {
-    strncpy(res, "\xf1", 1);
+    memcpy(res, "\xF1\x00", 2);
     return 8;
   } else if (!strncmp(token, "&copy;", 6)) {
-    strncpy(res, "\xa9", 1);
-    return 6;
-  } else if (!strncmp(token, "&#169;", 6)) {
-    strncpy(res, "\xa9", 1);
+    memcpy(res, "\xA9\x00", 2);
     return 6;
   } else if (!strncmp(token, "&reg;", 5)) {
-    strncpy(res, "\xae", 1);
+    memcpy(res, "\xAE\x00", 2);
     return 5;
-  } else if (!strncmp(token, "&#174;", 6)) {
-    strncpy(res, "\xae", 1);
-    return 6;
   } else if (!strncmp(token, "&deg;", 5)) {
-    strncpy(res, "\xb0", 1);
+    memcpy(res, "\xB0\x00", 2);
     return 5;
-  } else if (!strncmp(token, "&#176;", 6)) {
-    strncpy(res, "\xb0", 1);
-    return 6;
   } else if (!strncmp(token, "&ordm;", 6)) {
-    strncpy(res, "\xba", 1);
+    memcpy(res, "\xBA\x00", 2);
     return 6;
   } else if (!strncmp(token, "&laquo;", 7)) {
-    strncpy(res, "\xab", 1);
+    memcpy(res, "\xAB\x00", 2);
     return 7;
-  } else if (!strncmp(token, "&#171;", 6)) {
-    strncpy(res, "\xab", 1);
-    return 6;
   } else if (!strncmp(token, "&raquo;", 7)) {
-    strncpy(res, "\xbb", 1);
+    memcpy(res, "\xBB\x00", 2);
     return 7;
-  } else if (!strncmp(token, "&#187;", 6)) {
-    strncpy(res, "\xbb", 1);
-    return 6;
   } else if (!strncmp(token, "&micro;", 7)) {
-    strncpy(res, "\xb5", 1);
+    memcpy(res, "\xB5\x00", 2);
     return 7;
-  } else if (!strncmp(token, "&#181;", 6)) {
-    strncpy(res, "\xb5", 1);
-    return 6;
   } else if (!strncmp(token, "&para;", 6)) {
-    strncpy(res, "\xb6", 1);
-    return 6;
-  } else if (!strncmp(token, "&#182;", 6)) {
-    strncpy(res, "\xb6", 1);
+    memcpy(res, "\xB6\x00", 2);
     return 6;
   } else if (!strncmp(token, "&frac14;", 8)) {
-    strncpy(res, "\xbc", 1);
+    memcpy(res, "\xBC\x00", 2);
     return 8;
-  } else if (!strncmp(token, "&#188;", 6)) {
-    strncpy(res, "\xbc", 1);
-    return 6;
   } else if (!strncmp(token, "&frac12;", 8)) {
-    strncpy(res, "\xbd", 1);
+    memcpy(res, "\xBD\x00", 2);
     return 8;
-  } else if (!strncmp(token, "&#189;", 6)) {
-    strncpy(res, "\xbd", 1);
-    return 6;
   } else if (!strncmp(token, "&frac34;", 8)) {
-    strncpy(res, "\xbe", 1);
+    memcpy(res, "\xBE\x00", 2);
     return 8;
-  } else if (!strncmp(token, "&#190;", 6)) {
-    strncpy(res, "\xbe", 1);
-    return 6;
-  } else if (!strncmp(token, "&#156;", 6)) {
-    strncpy(res, "\x9c", 1);
+  } else if (!strncmp(token, "&#", 2)) {
+    res[0] = atoi(token + 2);
     return 6;
   } else {
-    strncpy(res, " ", 1);
+    memcpy(res, "\x20\x00", 2);
     return i+1;
   }
 }

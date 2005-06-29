@@ -1,6 +1,6 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
-CFLAGS= -O3 -Wall -ansi
+CFLAGS= -O3 -Wall -ansi -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 EXEC= any2utf8
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
