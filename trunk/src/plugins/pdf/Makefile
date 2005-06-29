@@ -1,10 +1,10 @@
 CC= gcc
-CFLAGS= -Wall -ansi -DINSTALL_PATH="\"$(libdir)\""
+CFLAGS= -Wall -ansi -DINSTALL_PATH="\"$(libdir)\"" -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 LDFLAGS= -Wall -ansi
 EXEC= p_pdf.so
 SRC= $(wildcard *.c)
 OBJ= $(SRC:.c=.o)
-LIBS= -licui18n -lz
+LIBS= -licui18n -lz -lglib-2.0
 
 all: $(EXEC)
 

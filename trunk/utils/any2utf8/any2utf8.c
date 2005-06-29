@@ -33,8 +33,8 @@
 #define DEFAULT  0
 
 void usage() {
-  printf("wrong command\nusage : ./any2utf8 -[option] <document>\n");
-  printf("   options :     -m : get metadata\n");
+  fprintf(stderr, "wrong command\nusage : ./any2utf8 -[option] <document>\n");
+  fprintf(stderr, "   options :     -m : get metadata\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (openDocument(argv[nb_options + 1], &d)) {
-    printf("error openDocument\n");
+    fprintf(stderr, "error openDocument\n");
     exit(0);
   }
 
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, ubuf, u_strlen(ubuf), &err);
       if (U_FAILURE(err)) {
-	printf("error ICU %d \n", err);
+	fprintf(stderr, "error ICU %d \n", err);
 	exit(0);
       }
       
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, meta.name, meta.name_length, &err);
       if (U_FAILURE(err)) {
-	printf("error ICU %d \n", err);
+	fprintf(stderr, "error ICU %d \n", err);
 	exit(0);
       }
       
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, meta.value, meta.value_length, &err);
       if (U_FAILURE(err)) {
-	printf("error ICU %d \n", err);
+	fprintf(stderr, "error ICU %d \n", err);
 	exit(0);
       }
       
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (closeDocument(&d)) {
-    printf("error closeDocument\n");
+    fprintf(stderr, "error closeDocument\n");
   }
 
   return 0;

@@ -73,7 +73,9 @@ int initPlugin(struct doc_descriptor *desc) {
     freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
     freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
     freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
-    freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
+    g_hash_table_foreach_remove(((struct pdfState *)(desc->myState))->XRef,
+				(GHRFunc)freeXRefStruct, NULL);
+    g_hash_table_destroy(((struct pdfState *)(desc->myState))->XRef);
     free(desc->myState);
     desc->myState = NULL;
     close(desc->fd);
@@ -97,7 +99,9 @@ int closePlugin(struct doc_descriptor *desc) {
     freeCMapList(((struct pdfState *)(desc->myState))->cmaplist);
     freeEncodingTable(((struct pdfState *)(desc->myState))->encodings);
     freeFilterStruct(((struct pdfState *)(desc->myState))->filter);
-    freeXRefStruct(((struct pdfState *)(desc->myState))->XRef);
+    g_hash_table_foreach_remove(((struct pdfState *)(desc->myState))->XRef,
+				(GHRFunc)freeXRefStruct, NULL);
+    g_hash_table_destroy(((struct pdfState *)(desc->myState))->XRef);
     free(desc->myState);
   }
   ucnv_close(desc->conv);

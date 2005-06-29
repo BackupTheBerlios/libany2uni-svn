@@ -269,7 +269,7 @@ int freeFilterStruct(struct pdffilter *filter);
  * \param xref the structure to free
  * \return an error code
  */
-int freeXRefStruct(struct xref *xref);
+gboolean freeXRefStruct(struct xref *xref);
 
 
 /**
@@ -279,6 +279,14 @@ int freeXRefStruct(struct xref *xref);
  * \return an error code
  */
 int freeCMapList(struct CMapList *cmaplist);
+
+
+/**
+ * to free a cmap structure
+ *
+ * \param cmap structure to free
+ */
+gboolean freeCMap(gpointer key, struct ToUnicodeCMap *cmap, gpointer user_data);
 
 
 /**

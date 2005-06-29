@@ -620,10 +620,7 @@ int mapCharset(struct doc_descriptor *desc, int charcode, UChar *out, int *l) {
     for(cmaplist = state->cmaplist; cmaplist->ref != state->currentEncoding->ToUnicode;
 	cmaplist = cmaplist->next) {}
     v = charcode + 256*state->last;
-    for(cmap = cmaplist->cmap; cmap != NULL &&
-	  (cmap->codelength != 1 + state->last_available ||
-	   (cmap->codelength == 1 + state->last_available && cmap->code != v));
-	cmap = cmap->next) {}
+    cmap = g_hash_table_lookup(cmaplist->cmap, &v);
     if(cmap != NULL) {
       if(u_isdefined(cmap->value[0])) {
 	memcpy(out+(*l)/2, cmap->value, cmap->vallength);
@@ -783,7 +780,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
     cmaplist = cmaplist->next;
   }
   cmaplist->next = NULL;
-  cmaplist->cmap = NULL;
+  cmaplist->cmap = g_hash_table_new((GHashFunc)g_int_hash, (GCompareFunc)g_int_equal);
   cmaplist->ref = ToUnicode;
 
   /* read CMap object */
@@ -904,14 +901,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	i++;
 
 	/* create new entry in ToUnicodeCMap list */
-	if(cmaplist->cmap == NULL) {
-	  cmaplist->cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	  cmap = cmaplist->cmap;
-	} else {
-	  cmap->next = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	  cmap = cmap->next;
-	}
-	cmap->next = NULL;
+	cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
 	cmap->codelength = 0;
 
 	/* get hex code and code length */
@@ -1025,6 +1015,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	    i = 0;
 	  }	  
 	}
+	g_hash_table_insert(cmaplist->cmap, &(cmap->code), cmap);
       }
     }
 
@@ -1204,14 +1195,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	  for( ; code <= lastcode; code++) {
 
 	    /* create new entry in ToUnicodeCMap list */
-	    if(cmaplist->cmap == NULL) {
-	      cmaplist->cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	      cmap = cmaplist->cmap;
-	    } else {
-	      cmap->next = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	      cmap = cmap->next;
-	    }
-	    cmap->next = NULL;
+	    cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
 	    cmap->codelength = codelength;
 	    cmap->code = code;
 	    cmap->vallength = vallength;
@@ -1223,6 +1207,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	      fprintf(stderr, "Unable to convert buffer\n");
 	      return ERR_ICU;
 	    }
+	    g_hash_table_insert(cmaplist->cmap, &(cmap->code), cmap);
 	    v++;
 	  }
 	} else {
@@ -1303,14 +1288,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	    }
 	    
 	    /* create new entry in ToUnicodeCMap list */
-	    if(cmaplist->cmap == NULL) {
-	      cmaplist->cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	      cmap = cmaplist->cmap;
-	    } else {
-	      cmap->next = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
-	      cmap = cmap->next;
-	    }
-	    cmap->next = NULL;
+	    cmap = (struct ToUnicodeCMap *) malloc(sizeof(struct ToUnicodeCMap));
 	    cmap->codelength = codelength;
 	    cmap->code = code;
 	    code++;
@@ -1323,6 +1301,7 @@ int readToUnicodeCMap(struct doc_descriptor *desc, int ToUnicode) {
 	      fprintf(stderr, "Unable to convert buffer\n");
 	      return ERR_ICU;
 	    }
+	    g_hash_table_insert(cmaplist->cmap, &(cmap->code), cmap);
 	  }
 	}
 	i++;

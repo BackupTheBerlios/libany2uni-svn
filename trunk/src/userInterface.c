@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
   
   
   if (argc != 2) {
-    printf("usage : ./test <doc_file>\n");
+    fprintf(stderr, "usage : ./test <doc_file>\n");
     exit(0);
   }
 /*  
@@ -342,22 +342,22 @@ int main(int argc, char *argv[]) {
   for (i = 0; i<20; i++) {
 */
   if (openDocument(argv[1], &d)) {
-    printf("error openDocument\n");
+    fprintf(stderr, "error openDocument\n");
     exit(0);
   }
-
+/*
   if (openDocument("../../format_abiword/test2.abw", &d2)) {
-    printf("error openDocument2\n");
+    fprintf(stderr, "error openDocument2\n");
     exit(0);
   }
-
+*/
   fd = fopen("output", "w");
 
   e = read_content(&d, buf);
   while(e >= 0) {
     fwrite(buf, e, 1, fd);
     fwrite("  ", 2, 1, fd);
-    f = read_content(&d2, buf);
+/*    f = read_content(&d2, buf);*/
     e = read_content(&d, buf);
   }
 
@@ -377,13 +377,13 @@ int main(int argc, char *argv[]) {
 
 
   fclose(fd);
-
+/*
   if (closeDocument(&d2)) {
-    printf("error closeDocument2\n");
+    fprintf(stderr, "error closeDocument2\n");
   }
-
+*/
   if (closeDocument(&d)) {
-    printf("error closeDocument\n");
+    fprintf(stderr, "error closeDocument\n");
   }
 /*
   }

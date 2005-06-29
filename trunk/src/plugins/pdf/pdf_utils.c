@@ -1598,14 +1598,7 @@ int gotoRef(struct doc_descriptor *desc, int ref){
   memset(state->prediction, '\x00', 10);
 
   /* finding reference in table */
-  XRef = state->XRef;
-  if(XRef == NULL) {
-    fprintf(stderr, "XRef is empty\n");
-    return ERR_XREF;
-  }
-  while(XRef != NULL && XRef->object_number != ref) {
-    XRef = XRef->next;
-  }
+  XRef = g_hash_table_lookup(state->XRef, &ref);
   if(XRef == NULL) {
     fprintf(stderr, "cannot find reference to object %d\n", ref);
     return ERR_XREF;
@@ -1623,8 +1616,7 @@ int gotoRef(struct doc_descriptor *desc, int ref){
     state->predictor = state->columns = 1;
 
     /* position on object stream */
-    for(XRef = state->XRef; XRef != NULL &&
-	  XRef->object_number != state->objectStream; XRef = XRef->next) {}
+    XRef = g_hash_table_lookup(state->XRef, &(state->objectStream));
     if(XRef == NULL) {
       fprintf(stderr, "cannot find object stream number %d\n", state->objectStream);
       return ERR_XREF;
@@ -1902,6 +1894,10 @@ int getXRef(struct doc_descriptor *desc) {
   cols = predictor = 1;
   len = read(desc->fd, buf, BUFSIZE);
 
+  if(state->XRef == NULL) {
+    state->XRef = g_hash_table_new((GHashFunc)g_int_hash, (GCompareFunc)g_int_equal);
+  }
+
   /* case of a cross reference table */
   if (!strncmp(buf, "xref", 4)) {
     i = getNextLine(buf, len);
@@ -1934,35 +1930,17 @@ int getXRef(struct doc_descriptor *desc) {
       i = 0;
     }
 
-    if(state->XRef == NULL) {
-      XRef = (struct xref *) malloc(sizeof(struct xref));
-      state->XRef = XRef;
-      XRef->next = NULL;
-    } else {
-      XRef = state->XRef;
-      while(XRef->next != NULL) {
-	XRef = XRef->next;
-      }
-      XRef->next = (struct xref *) malloc(sizeof(struct xref));
-      XRef = XRef->next;
-      XRef->next = NULL;
-    }
-
     /* copy each entry in state->XRef */
     for(t = xinf; t <= xsup; t++) {
+      XRef = (struct xref *) malloc(sizeof(struct xref));
+
       strncpy(tmp, buf + i, 10);
       strncpy(tmp + 10, "\0", 1);
       i += 20;
       XRef->object_number = t;
       XRef->offset_or_index = atoi(tmp);
       XRef->isInObjectStream = 0;
-
-      if(t < xsup) {
-	XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	XRef = XRef->next;
-	XRef->next = NULL;
-      }
-
+      g_hash_table_insert(state->XRef, &(XRef->object_number), XRef);
       if( i >= len - 20) {
 	strncpy(buf, buf + i, len - i);
 	len = read(desc->fd, buf + len - i, BUFSIZE - len + i) + len - i;
@@ -2533,19 +2511,7 @@ int getXRef(struct doc_descriptor *desc) {
       }
 
       /* procede xref table */
-      if(state->XRef == NULL) {
-	XRef = (struct xref *) malloc(sizeof(struct xref));
-	state->XRef = XRef;
-	XRef->next = NULL;
-      } else {
-	XRef = state->XRef;
-	while(XRef->next != NULL) {
-	  XRef = XRef->next;
-	}
-	XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	XRef = XRef->next;
-	XRef->next = NULL;
-      }
+      XRef = (struct xref *) malloc(sizeof(struct xref));
       i = 0;
       while(i < len2 && currentObject <= xsup) {
 	memcpy(tmp, decoded + i, field1Size);
@@ -2564,10 +2530,9 @@ int getXRef(struct doc_descriptor *desc) {
 	  XRef->offset_or_index = v;
 	  XRef->object_number = currentObject;
 	  XRef->isInObjectStream = 0;
+	  g_hash_table_insert(state->XRef, &(XRef->object_number), XRef);
 	  if(i < len2 - 6 && currentObject < xsup) {
-	    XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	    XRef = XRef->next;
-	    XRef->next = NULL;
+	    XRef = (struct xref *) malloc(sizeof(struct xref));
 	  }
 	
 	
@@ -2588,10 +2553,9 @@ int getXRef(struct doc_descriptor *desc) {
 	  XRef->offset_or_index = v;
 	  XRef->object_number = currentObject;
 	  XRef->isInObjectStream = 1;
+	  g_hash_table_insert(state->XRef, &(XRef->object_number), XRef);
 	  if(i < len2 - 6 && currentObject < xsup) {
-	    XRef->next = (struct xref *) malloc(sizeof(struct xref));
-	    XRef = XRef->next;
-	    XRef->next = NULL;
+	    XRef = (struct xref *) malloc(sizeof(struct xref));
 	  }
 	
 	} else {
@@ -2654,15 +2618,9 @@ int freeFilterStruct(struct pdffilter *filter) {
   return 0;
 }
 
-int freeXRefStruct(struct xref *xref) {
-  struct xref *tmp;
-
-  while(xref != NULL) {
-    tmp = xref;
-    xref = xref->next;
-    free(tmp);
-  }
-  return 0;
+gboolean freeXRefStruct(struct xref *xref) {
+  free(xref);
+  return 1;
 }
 
 
@@ -2912,20 +2870,24 @@ int decodeASCII85(char *src, int srclen, char *dest, int *destlen){
 }
 
 
+gboolean freeCMap(gpointer key, struct ToUnicodeCMap *cmap, gpointer user_data) {
+  cmap->codelength = 0;
+  cmap->code = 0;
+  cmap->vallength = 0;
+  free(cmap->value);
+  free(cmap);
+  return OK;
+}
+
+
 int freeCMapList(struct CMapList *cmaplist) {
   struct CMapList *tmplist;
-  struct ToUnicodeCMap *cmap, *tmp;
 
   while(cmaplist != NULL) {
     tmplist = cmaplist;
     cmaplist = cmaplist->next;
-    cmap = tmplist->cmap;
-    while(cmap != NULL) {
-      tmp = cmap;
-      cmap = cmap->next;
-      free(tmp->value);
-      free(tmp);
-    }
+    g_hash_table_foreach_remove(tmplist->cmap, (GHRFunc)freeCMap, NULL);
+    g_hash_table_destroy(tmplist->cmap);
     free(tmplist);
   }
 

@@ -34,6 +34,7 @@
 #include <unicode/uchar.h>
 #include <unicode/ucnv.h>
 #include <expat.h>
+#include <glib.h>
 
 #define INTERNAL_BUFSIZE 5000
 
@@ -110,7 +111,7 @@ struct pdfState {
   int     inString;                /* 1 if cursor is inside a string object */
   struct encodingTable *encodings; /* font encodings structure */
   struct encodingTable *currentEncoding; /* current encoding */
-  struct xref *XRef;               /* cross reference table */
+  /*struct xref*/GHashTable *XRef;               /* cross reference table */
   int     objectStream;            /* stream containing the desired object */
   int     offsetInStream;          /* offset of the object in the stream */
   int     first;                   /* offset to first object in stream */
@@ -213,7 +214,6 @@ struct xref {
   int offset_or_index;         /* offset of the object or index if
 				  it is in an object stream */
   int object_stream;           /* the object stream in which it is */
-  struct xref *next;           /* next entry in table */
 };
 
 
@@ -265,7 +265,7 @@ struct diffTable {
  */
 struct CMapList {
   int    ref;                 /* CMap reference number */
-  struct ToUnicodeCMap *cmap; /* first entry of CMap structure */
+  /*struct ToUnicodeCMap*/GHashTable *cmap; /* Hash Table of CMap structures */
   struct CMapList *next;      /* next CMap */
 };
 
@@ -278,7 +278,6 @@ struct ToUnicodeCMap {
   int   code;                  /* code */
   UChar *value;                /* utf-16 value */
   int   vallength;
-  struct ToUnicodeCMap *next;  /* next entry in CMap */
 };
 
 
