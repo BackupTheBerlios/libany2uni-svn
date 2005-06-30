@@ -2629,7 +2629,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   z_stream z;
   char srcbuf[BUFSIZE], outbuf[BUFSIZE], buf2[BUFSIZE+4], rest[10];
   int len, i, len2, j, finish, size, restlen, total;
-  int ascii85, flate, destlen;
+  int ascii85, flate, destlen, noFilter;
 
   /* object is not inside a stream object */
   if(state->objectStream == -1) {
@@ -2640,6 +2640,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   state->length = state->streamlength;
   ascii85 = 0;
   flate = 0;
+  noFilter = 1;
   gotoRef(desc, state->objectStream);
   len = read(desc->fd, srcbuf, BUFSIZE);
 
@@ -2653,6 +2654,7 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
 
   if(!strncmp(srcbuf + i, "/Filter", 7)) {
     i += 7;
+    noFilter = 0;
     for( ; !strncmp(srcbuf + i, " ", 1) ||
 	   !strncmp(srcbuf + i, "\x0A", 1) ||
 	   !strncmp(srcbuf + i, "\x0D", 1); i++) {}
@@ -2695,6 +2697,16 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   lseek(desc->fd, i - len, SEEK_CUR);
   i = 0;
   len2 = 0;
+
+  if(noFilter) {
+    lseek(desc->fd, state->offsetInStream, SEEK_CUR);
+    state->length -= state->offsetInStream;
+    len2 = read(desc->fd, buf, (state->length < buflen) ?
+		state->length : buflen);
+    state->length -= len2;
+    state->offsetInStream += len2;
+    return len2;
+  }
 
   /* prepare stream inflating */
   z.zalloc = Z_NULL;
