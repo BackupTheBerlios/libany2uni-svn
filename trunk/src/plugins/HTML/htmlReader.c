@@ -130,11 +130,13 @@ int escapeChar(struct doc_descriptor *desc, char *buf, UChar *res) {
 }
 
 int getText(struct doc_descriptor *desc, UChar *buf, int size) {
+  struct meta *meta = NULL;
   char buf2[BUFSIZE];
   UErrorCode err;
   char *src;
-  UChar *dest, esc[3];;
-  int len, i, isMarkup, isJavascript, l;
+  UChar *dest, esc[3];
+  UChar name[1024], value[1024];
+  int len, i, isMarkup, isJavascript, isMeta, l, j;
   int dangerousCut, fini, r, offset, endOfFile, space_added;
 
   space_added = 0;
@@ -144,6 +146,7 @@ int getText(struct doc_descriptor *desc, UChar *buf, int size) {
   isJavascript = 0;
   dangerousCut = 0;
   isMarkup = 0;
+  isMeta = 0;
   len = read(desc->fd, buf2, BUFSIZE);
   while (!fini && len > 0 && l < size - 2){
 
@@ -182,10 +185,212 @@ int getText(struct doc_descriptor *desc, UChar *buf, int size) {
 	/* detecting begining of javascript */
 	if (!strncmp(buf2 + i, "<script", 7)) {
 	  isJavascript = 1;
+
+	} else if(!strncmp(buf2 + i, "<title", 6) ||
+		  !strncmp(buf2 + i, "<TITLE", 6)) {
+	  err = U_ZERO_ERROR;
+	  /* finding last metadata of desc */
+	  if (desc->meta == NULL) {
+	    meta = (struct meta *) malloc(sizeof(struct meta));
+	    desc->meta = meta;
+	  } else {
+	    meta = desc->meta;
+	    while (meta->next != NULL) {
+	      meta = meta->next;
+	    }
+	    meta->next = (struct meta *) malloc(sizeof(struct meta));
+	    meta = meta->next;
+	  }
+	  meta->next = NULL;
+	  meta->name = (UChar *) malloc(12);
+	  
+	  /* filling name field */
+	  meta->name_length = 2 * ucnv_toUChars(desc->conv, meta->name ,
+						12, "title", 5, &err);
+	  meta->name_length = u_strlen(meta->name);
+	  if (U_FAILURE(err)) {
+	    printf("error icu\n");
+	    return ERR_ICU;
+	  }
+	  isMeta = 1;
+
+	} else if(!strncmp(buf2 + i, "<meta", 5) ||
+		  !strncmp(buf2 + i, "<META", 5)) {
+	  i += 5;
+	  if(i >= size - 9) {
+	    strncpy(buf2, buf2 + i, len - i);
+	    len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
+	  for( ; strncmp(buf2 + i, "name=\"", 6) &&
+		 strncmp(buf2 + i, "\x3E", 1); i++) {
+	    if(i >= size - 9) {
+	      strncpy(buf2, buf2 + i, len - i);
+	      len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+	      i = 0;
+	    }
+	  }
+	  if(!strncmp(buf2 + i, "\x3E", 1)) {
+	    continue;
+
+	  } else {
+	    i += 6;
+	    /* get metadata name */
+	    memset(name, '\x00', 2048);
+	    for(j = 0 ; len != 0 && strncmp(buf2 + i, "\"", 1); i++) {
+	      if(i >= size - 9) {
+		strncpy(buf2, buf2 + i, len - i);
+		len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+		i = 0;
+	      }
+	      if(!strncmp(buf2 + i, "\x26", 1)) {
+		memset(esc, '\x00', 6);
+		offset = escapeChar(desc, buf2 + i, esc);
+		memcpy(name + j/2, esc, 2*u_strlen(esc));
+		j += 2*u_strlen(esc);
+		i += (offset - 1);
+	      } else {
+		
+		/* filling name buffer */
+		dest = name + j/2;
+		src = buf2 + i;
+		err = U_ZERO_ERROR;
+		ucnv_toUnicode(desc->conv, &dest, name + 1024,
+			       &src, buf2 + i + 1, NULL, FALSE, &err);
+		if (U_FAILURE(err)) {
+		  fprintf(stderr, "Unable to convert buffer\n");
+		  return ERR_ICU;
+		}
+		j += 2*(dest - name - j/2);
+	      }
+	    }
+
+	    /* get metadata value */
+	    for( ; strncmp(buf2 + i, "content=\"", 9) &&
+		   strncmp(buf2 + i, "\x3E", 1); i++) {
+	      if(i >= size - 9) {
+		strncpy(buf2, buf2 + i, len - i);
+		len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+		i = 0;
+	      }
+	    }
+	    i += 9;
+	    if(i >= size - 9) {
+	      strncpy(buf2, buf2 + i, len - i);
+	      len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+	      i = 0;
+	    }
+	    memset(value, '\x00', 2048);
+	    for(j = 0 ; len != 0 && strncmp(buf2 + i, "\"", 1); i++) {
+	      if(i >= size - 9) {
+		strncpy(buf2, buf2 + i, len - i);
+		len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+		i = 0;
+	      }
+	      if(!strncmp(buf2 + i, "\x26", 1)) {
+		memset(esc, '\x00', 6);
+		offset = escapeChar(desc, buf2 + i, esc);
+		memcpy(value + j/2, esc, 2*u_strlen(esc));
+		j += 2*u_strlen(esc);
+		i += (offset - 1);
+	      } else {
+		
+		/* filling value buffer */
+		dest = value + j/2;
+		src = buf2 + i;
+		err = U_ZERO_ERROR;
+		ucnv_toUnicode(desc->conv, &dest, value + 1024,
+			       &src, buf2 + i + 1, NULL, FALSE, &err);
+		if (U_FAILURE(err)) {
+		  fprintf(stderr, "Unable to convert buffer\n");
+		  return ERR_ICU;
+		}
+		j += 2*(dest - value - j/2);
+	      }
+	    }
+
+	    /* insert metadata in list */
+	    if (desc->meta == NULL) {
+	      meta = (struct meta *) malloc(sizeof(struct meta));
+	      desc->meta = meta;
+	    } else {
+	      meta = desc->meta;
+	      while (meta->next != NULL) {
+		meta = meta->next;
+	      }
+	      meta->next = (struct meta *) malloc(sizeof(struct meta));
+	      meta = meta->next;
+	    }
+	    meta->next = NULL;
+	    meta->name = (UChar *) malloc(2 * u_strlen(name) + 2);
+	    meta->value = (UChar *) malloc(2 * u_strlen(value) + 2);
+	    memset(meta->name, '\x00', 2 * u_strlen(name) + 2);
+	    memset(meta->value, '\x00', 2 * u_strlen(value) + 2);
+	    memcpy(meta->name, name, 2*u_strlen(name));
+	    memcpy(meta->value, value, 2*u_strlen(value));
+	    meta->name_length = u_strlen(name);
+	    meta->value_length = u_strlen(value);
+
+	    for( ; strncmp(buf2 + i, "\x3E", 1); i++) {
+	      if(i >= size - 9) {
+		strncpy(buf2, buf2 + i, len - i);
+		len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+		i = 0;
+	      }
+	    }
+	    continue;
+	  }
+
 	} else {
 
 	  isMarkup = 1;
 	}
+      }
+
+      /* get metadata value */
+      if(!isJavascript && isMeta) {
+	for( ; len != 0 && strncmp(buf2 + i, "\x3E", 1); i++) {
+	  if(i >= size - 9) {
+	    strncpy(buf2, buf2 + i, len - i);
+	    len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
+	}
+	i++;
+	memset(value, '\x00', 2048);
+	for(j = 0 ; len != 0 && strncmp(buf2 + i, "\x3C", 1); i++) {
+	  if(i >= size - 9) {
+	    strncpy(buf2, buf2 + i, len - i);
+	    len =read(desc->fd, buf2 + i, BUFSIZE - len + i) + len - i;
+	    i = 0;
+	  }
+	  if(!strncmp(buf2 + i, "\x26", 1)) {
+	    memset(esc, '\x00', 6);
+	    offset = escapeChar(desc, buf2 + i, esc);
+	    memcpy(value + j/2, esc, 2*u_strlen(esc));
+	    j += 2*u_strlen(esc);
+	    i += (offset - 1);
+	  } else {
+
+	    /* filling value buffer */
+	    dest = value + j/2;
+	    src = buf2 + i;
+	    err = U_ZERO_ERROR;
+	    ucnv_toUnicode(desc->conv, &dest, value + 1024,
+			    &src, buf2 + i + 1, NULL, FALSE, &err);
+	    if (U_FAILURE(err)) {
+	      fprintf(stderr, "Unable to convert buffer\n");
+	      return ERR_ICU;
+	    }
+	    j += 2*(dest - value - j/2);
+	  }
+	}
+	meta->value = (UChar *) malloc(2 * (j + 1));
+	memcpy(meta->value, value, 2 * u_strlen(value));
+	meta->value_length = u_strlen(value);
+	isMeta = 0;
+	i += 7;
+	continue;
       }
 
       /* detecting end of markup */

@@ -723,7 +723,7 @@ int getText(struct doc_descriptor *desc, char *buf, int size) {
 	  } else {
 	    meta = desc->meta;
 	    while (meta->next != NULL) {
-	      meta = desc->meta;
+	      meta = meta->next;
 	    }
 	    meta->next = (struct meta *) malloc(sizeof(struct meta));
 	    meta = meta->next;
