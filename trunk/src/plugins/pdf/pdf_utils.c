@@ -811,6 +811,44 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 
   while (!fini) {
 
+    /* skip inline images */
+    if(!state->inString && !strncmp(buf + i, "BI", 2)) {
+      while(strncmp(buf + i, "EI", 2)) {
+	i++;
+	state->currentOffset++;
+	state->offsetInStream = state->currentOffset;
+	if(i >= len - 2) {
+	  strncpy(buf, buf + i, len - i);
+	  len = readObject(desc, buf + len - i , BUFSIZE - len + i) + len - i;
+	  state->objectStream = state->currentStream;
+	  i = 0;
+	}
+	/* end of stream */
+	if(len <= 0) {
+	  fini = 1;
+	  state->stream = 0;
+	  freeFilterStruct(state->filter);
+	  state->filter = NULL;
+	  state->currentOffset = 0;
+	  if(state->last_available) {
+	    out[l/2] = state->last;
+	    l += 2;
+	    state->last = 0;
+	    state->last_available = 0;
+	  }
+	  getNextStream(desc);
+	  if(state->newPage) {
+	    memcpy(out + l, "\x20\x00", 2);
+	    l += 2;
+	    state->newPage = 0;
+	  }
+	  memcpy(out + l, "\x00\x00", 2);
+	  return l;
+	}
+      }
+    }
+
+
     /* font changed */
     if(!state->inString && !strncmp(buf + i, "/", 1)) {
 
