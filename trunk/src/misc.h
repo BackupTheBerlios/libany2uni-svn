@@ -346,6 +346,7 @@ struct doc_descriptor {
 #define ERR_KEYWORD       -18
 #define ENCRYPTED_FILE    -19
 #define ERR_OLE           -20
+#define ERR_PDF_GENERAL   -21
 
 
 #endif /* __MSC_H__ */

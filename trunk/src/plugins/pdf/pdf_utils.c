@@ -569,6 +569,13 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 
     /* search dictionary */
     for (i = 0; strncmp(buf + i, "<<", 2); i++) {
+
+      if(!strncmp(buf + i, "[", 1)) {
+	/* this is not a stream */
+	fprintf(stderr, "Error in stream number %d\n", state->currentStream);
+	return ERR_PDF_GENERAL;
+      }
+
       if (i >= len - 2) {
 	strncpy(buf, buf + i + 1, 1);
 	len = read(desc->fd, buf + 1, BUFSIZE - 1) + 1;

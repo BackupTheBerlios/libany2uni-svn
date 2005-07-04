@@ -1,6 +1,6 @@
 CC= gcc
 LDFLAGS= -O3 -Wall -ansi
-CFLAGS=  -O3 -Wall -ansi -fno-strict-aliasing  -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -DINSTALL_PATH="\"$(libdir)\"" -DINCLUDE_PATH="\"$(includedir)\""
+CFLAGS= -O3 -Wall -ansi -fno-strict-aliasing  -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -DINSTALL_PATH="\"$(libdir)\"" -DINCLUDE_PATH="\"$(includedir)\""
 EXEC= libtkz.so
 EXEC= libany2uni.so
 SRC= $(wildcard *.c)
