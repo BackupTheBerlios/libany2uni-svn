@@ -4,7 +4,10 @@ HOW TO INSTALL THE ANY2UNI LIBRARY
 
 Requirements:
 -------------
+This library has been designed for Linux.
 In order to compile the library, you need to have the followings installed:
+	-> gcc (it was tested with 3.3.5 but other recent versions
+		should do fine)
 	-> ICU 2.1-2 or ICU 3.4
 	-> libexpat 1.95.8-1
 	-> zlib

@@ -406,7 +406,6 @@ int getText(struct doc_descriptor *desc, UChar *buf, int size) {
       /* handling text */
       if (!isJavascript && !isMarkup && strncmp(buf2 + i, "\x3e", 1)) {
 
-	/* skipping blancs */
 	if (strncmp(buf2 + i, "\n", 1) &&
 	    strncmp(buf2 + i, "\t", 1) ) {
 	  
@@ -435,6 +434,10 @@ int getText(struct doc_descriptor *desc, UChar *buf, int size) {
 	    l+= 2*(dest - buf - l/2);
 	    space_added = 0;
 	  }
+	} else {
+	  /* replace tabs and eol by spaces */
+	  buf[l/2] = "\x20\x00";
+	  l += 2;
 	}
       }
     }
