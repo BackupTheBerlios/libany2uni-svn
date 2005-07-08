@@ -407,6 +407,9 @@ int getText(struct doc_descriptor *desc, UChar *buf, int size) {
 	  l += 2;
 	  return l;
 	}
+      } else {
+	memcpy(buf + l, "\x20\x00", 2);
+	l += 2;
       }
       state->cursor++;
       if(state->cursor >= state->len - 7) {

@@ -83,10 +83,7 @@ int closePlugin(struct doc_descriptor *desc) {
  * reads the next paragraph and converts to UTF-16
  */
 int p_read_content(struct doc_descriptor *desc, UChar *buf) {
-  char *outputbuf, *src;
-  UChar *dest;
   int len;
-  UErrorCode err;
 
   len = 0;
 
