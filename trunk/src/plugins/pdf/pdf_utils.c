@@ -815,7 +815,6 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
     memcpy(out + l, "\x00\x00", 2);
     return l;
   }
-
   while (!fini) {
 
     /* skip inline images */
@@ -858,7 +857,6 @@ int procedeStream(struct doc_descriptor *desc, UChar *out, int size) {
 
     /* font changed */
     if(!state->inString && !strncmp(buf + i, "/", 1)) {
-
       for(k = 0; strncmp(buf + i, " ", 1)
 	    && strncmp(buf + i, "\x0A", 1)
 	    && strncmp(buf + i, "\x0D", 1); ) {
@@ -2756,8 +2754,8 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   /* prepare stream inflating */
   z.zalloc = Z_NULL;
   z.zfree = Z_NULL;
-  z.next_in = srcbuf;
-  z.avail_in = (state->length < BUFSIZE) ? state->length : BUFSIZE;
+  z.next_in = Z_NULL;
+  z.avail_in = BUFSIZE;
   inflateInit(&z);
   z.avail_in = 0;
   finish = 0;
@@ -2770,15 +2768,19 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
     if(z.avail_in == 0) {
       len = read(desc->fd, srcbuf, BUFSIZE);
       if(ascii85 == 1) {
-	lseek(desc->fd, -decodeASCII85(srcbuf, len, outbuf, &destlen), SEEK_CUR);
-	strncpy(srcbuf, outbuf, destlen);
+	restlen = decodeASCII85(srcbuf, len, outbuf, &destlen);
+	lseek(desc->fd, -restlen, SEEK_CUR);
+	memcpy(srcbuf, outbuf, destlen);
+	state->length -= len - restlen;
+	restlen = 0;
 	len = destlen;
+      } else {
+	state->length -= len;
       }
       if(len == 0) {
 	inflateEnd(&z);
 	return 0;
       }
-      state->length -= len;
       z.avail_in = len;
       z.next_in = srcbuf;
     }
@@ -2810,14 +2812,19 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
 	  (destlen - i < size) ? destlen - i : size);
   len2 += (destlen - i < size) ? destlen - i : size;
   size -= (destlen - i < size) ? destlen - i : size;
-  
+
   while(!finish && len2 < buflen) {
     if(z.avail_in == 0) {
       len = read(desc->fd, srcbuf, BUFSIZE);
       if(ascii85 == 1) {
-	lseek(desc->fd, -decodeASCII85(srcbuf, len, outbuf, &destlen), SEEK_CUR);
+	restlen = decodeASCII85(srcbuf, len, outbuf, &destlen);
+	lseek(desc->fd, -restlen, SEEK_CUR);
 	strncpy(srcbuf, outbuf, destlen);
+	state->length -= len - restlen;
+	restlen = 0;
 	len = destlen;
+      } else {
+	state->length -= len;
       }
       if(len == 0) {
 	inflateEnd(&z);
@@ -2844,7 +2851,6 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
 
 	return len2;
       }
-      state->length -= len;
       z.avail_in = len;
       z.next_in = srcbuf;
     }
@@ -2887,14 +2893,13 @@ int readObject(struct doc_descriptor *desc, void *buf, size_t buflen) {
   }
 
   state->offsetInStream += len2;
-
   return len2;
 }
 
 
 int decodeASCII85(char *src, int srclen, char *dest, int *destlen){
   char _85[5], ascii[4];
-  int val, i, j;
+  unsigned int val, i, j;
 
   i = 0;
   *destlen = 0;

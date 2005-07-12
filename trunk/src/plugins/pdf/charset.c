@@ -92,7 +92,7 @@ int getEncodings(struct doc_descriptor *desc) {
       i = 0;
     }
   }
-  
+
   /* enter ressources */
   if(strncmp(buf + i, "<<", 2)) {
     gotoRef(desc, getNumber(buf + i));
