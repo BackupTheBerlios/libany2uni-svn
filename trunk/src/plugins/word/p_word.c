@@ -75,7 +75,7 @@ int initPlugin(struct doc_descriptor *desc) {
 
   /* initialize converter */
   err = U_ZERO_ERROR;
-  desc->conv = ucnv_open("latin1", &err);
+  desc->conv = ucnv_open("cp1252", &err);
   if (U_FAILURE(err)) {
     fprintf(stderr, "unable to open ICU converter\n");
     return ERR_ICU;
