@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   UErrorCode err;
   char *out;
   int32_t size;
-  int nb_options, mode, first;
+  int nb_options, mode;
   struct meta meta;
 
   mode = DEFAULT;
@@ -86,74 +86,69 @@ int main(int argc, char *argv[]) {
       u_strToUTF8(NULL, 0, &size, ubuf, u_strlen(ubuf), &err);
       /* allocate output string with 1 more character for termination */
       out = (char *) malloc(size+1);
-      
+
       /* convert utf16 to utf8 */
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, ubuf, u_strlen(ubuf), &err);
       if (U_FAILURE(err)) {
-	fprintf(stderr, "error ICU %d \n", err);
-	exit(0);
+    fprintf(stderr, "error ICU %d \n", err);
+    exit(0);
       }
-      
+
       /* printing result to standard output */
-      printf("%s ", out);
+      printf("%s\n", out);
 
       memset(ubuf, '\x00', 10000);
-      free(out);    
+      free(out);
     }
-    printf("\n");
+    /* printf("\n"); */
   } else if (mode == METADATA) {
-    
+
     /* reading the whole file first to ensure that
        all present metadata are found */
     while (read_content(&d, ubuf) >= 0) {}
 
-    first = 1;
     /* printing metadata to standard output */
     while(read_meta(&d, &meta) != NO_MORE_META) {
-      if( !first) {
-	printf(",");
-      }
-      first = 0;
 
       /* get the needed size for output string */
       u_strToUTF8(NULL, 0, &size, meta.name, meta.name_length, &err);
 
       /* allocate output string with 1 more character for termination */
       out = (char *) malloc(size+1);
-      
+
       /* convert utf16 to utf8 */
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, meta.name, meta.name_length, &err);
       if (U_FAILURE(err)) {
-	fprintf(stderr, "error ICU %d \n", err);
-	exit(0);
+    fprintf(stderr, "error ICU %d \n", err);
+    exit(0);
       }
-      
+
       /* printing name to standard output */
       printf("%s", out);
 
-      free(out);    
+      free(out);
 
       /* get the needed size for output string */
       u_strToUTF8(NULL, 0, &size, meta.value, meta.value_length, &err);
 
       /* allocate output string with 1 more character for termination */
       out = (char *) malloc(size+1);
-      
+
       /* convert utf16 to utf8 */
       err = U_ZERO_ERROR;
       u_strToUTF8(out, size+1, NULL, meta.value, meta.value_length, &err);
       if (U_FAILURE(err)) {
-	fprintf(stderr, "error ICU %d \n", err);
-	exit(0);
+    fprintf(stderr, "error ICU %d \n", err);
+    exit(0);
       }
-      
+
       /* printing result to standard output */
-      printf(":%s", out);
-      
-      free(out);    
-      
+      printf(": %s\n", out);
+
+      free(out);
+
     }
 
   }
