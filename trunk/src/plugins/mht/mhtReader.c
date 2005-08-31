@@ -320,7 +320,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                   }
                 if (l > 0 && !space_added)
                   {
-                      memcpy (buf + l, "\x20\x00", 2);
+                      buf[l]=0x20;
                       l++;
                       space_added = 1;
                       return l * 2;
@@ -373,7 +373,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
 
                 if (!space_added)
                   {
-                      memcpy (buf + l, "\x20\x00", 2);
+                      buf[l]=0x20;
                       l++;
                       space_added = 1;
                   }
@@ -410,7 +410,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                       else {space_added = 1; }
                       if ((2 * l >= size - 2))
                         {
-                            memcpy (buf + l, "\x20\x00", 2);
+                            buf[l]=0x20;
                             l++;
                             space_added = 1;
                             return 2 * l;
@@ -448,7 +448,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                 l += u_strlen (esc);
                 if ((2 * l >= size - 2) && !space_added)
                   {
-                      memcpy (buf + l, "\x20\x00", 2);
+                      buf[l]=0x20;
                       l++;
                       space_added = 1;
                       return 2 * l;
@@ -481,16 +481,14 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
 
                       if (2 * l >= size - 2)
                         {
-                            memcpy (buf + l, "\x20\x00", 2);
+                            buf[l]=0x20;
                             l++;
                             space_added = 1;
                             return 2 * l;
                         }
                   }
                 else
-                  {             /* linefeeds are irrelevant to content in MIME
-                                   memcpy (buf + l, "\x20\x00", 2);
-                                   l++; */
+                  {             /* linefeeds are irrelevant to content in MIME */
                   }
                 state->cursor++;
                 if (state->cursor >= state->len - 7)
@@ -514,7 +512,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
 
     if (l > 0 && !space_added)
       {
-          memcpy (buf + l, "\x20\x00", 2);
+          buf[l]=0x20;
           l++;
       }
     return 2 * l;
@@ -790,129 +788,129 @@ escapeChar (char *buf, UChar * res)
       {
 
           /* if it does not seem to be a token, result is '&' */
-          memcpy (res, "\x26\x00", 2);
+          *res=0x26;
           return 1;
       }
 
     /* identifying token */
     if (!strncasecmp (token, "&amp;", 5))
       {
-          memcpy (res, "\x26\x00", 2);
+          *res=0x26;
           return 5;
       }
     else if (!strncasecmp (token, "&lt;", 4))
       {
-          memcpy (res, "\x3C\x00", 2);
+          *res=0x3C;
           return 4;
       }
     else if (!strncasecmp (token, "&gt;", 4))
       {
-          memcpy (res, "\x3E\x00", 2);
+          *res=0x3E;
           return 4;
       }
     else if (!strncasecmp (token, "&quot;", 6))
       {
-          memcpy (res, "\x22\x00", 2);
+          *res=0x22;
           return 6;
       }
     else if (!strncmp (token, "&eacute;", 8))
       {
-          memcpy (res, "\xE9\x00", 2);
+          *res=0xE9;
           return 8;
       }
     else if (!strncmp (token, "&Eacute;", 8))
       {
-          memcpy (res, "\xC9\x00", 2);
+          *res=0xC9;
           return 8;
       }
     else if (!strncmp (token, "&egrave;", 8))
       {
-          memcpy (res, "\xE8\x00", 2);
+          *res=0xE8;
           return 8;
       }
     else if (!strncmp (token, "&Egrave;", 8))
       {
-          memcpy (res, "\xC8\x00", 2);
+          *res=0xC8;
           return 8;
       }
     else if (!strncmp (token, "&ecirc;", 7))
       {
-          memcpy (res, "\xEA\x00", 2);
+          *res=0xEA;
           return 7;
       }
     else if (!strncmp (token, "&agrave;", 8))
       {
-          memcpy (res, "\xE0\x00", 2);
+          *res=0xE0;
           return 8;
       }
     else if (!strncmp (token, "&iuml;", 6))
       {
-          memcpy (res, "\xEF\x00", 2);
+          *res=0xEF;
           return 6;
       }
     else if (!strncmp (token, "&ccedil;", 8))
       {
-          memcpy (res, "\xE7\x00", 2);
+          *res=0xE7;
           return 8;
       }
     else if (!strncmp (token, "&ntilde;", 8))
       {
-          memcpy (res, "\xF1\x00", 2);
+          *res=0xF1;
           return 8;
       }
     else if (!strncmp (token, "&copy;", 6))
       {
-          memcpy (res, "\xA9\x00", 2);
+          *res=0xA9;
           return 6;
       }
     else if (!strncmp (token, "&reg;", 5))
       {
-          memcpy (res, "\xAE\x00", 2);
+          *res=0xAE;
           return 5;
       }
     else if (!strncmp (token, "&deg;", 5))
       {
-          memcpy (res, "\xB0\x00", 2);
+          *res=0xB0;
           return 5;
       }
     else if (!strncmp (token, "&ordm;", 6))
       {
-          memcpy (res, "\xBA\x00", 2);
+          *res=0xBA;
           return 6;
       }
     else if (!strncmp (token, "&laquo;", 7))
       {
-          memcpy (res, "\xAB\x00", 2);
+          *res=0xAB;
           return 7;
       }
     else if (!strncmp (token, "&raquo;", 7))
       {
-          memcpy (res, "\xBB\x00", 2);
+          *res=0xBB;
           return 7;
       }
     else if (!strncmp (token, "&micro;", 7))
       {
-          memcpy (res, "\xB5\x00", 2);
+          *res=0xB5;
           return 7;
       }
     else if (!strncmp (token, "&para;", 6))
       {
-          memcpy (res, "\xB6\x00", 2);
+          *res=0xB6;
           return 6;
       }
     else if (!strncmp (token, "&frac14;", 8))
       {
-          memcpy (res, "\xBC\x00", 2);
+          *res=0xBC;
           return 8;
       }
     else if (!strncmp (token, "&frac12;", 8))
       {
-          memcpy (res, "\xBD\x00", 2);
+          *res=0xBD;
           return 8;
       }
     else if (!strncmp (token, "&frac34;", 8))
       {
-          memcpy (res, "\xBE\x00", 2);
+          *res=0xBE;
           return 8;
       }
     else if (!strncmp (token, "&#", 2))
@@ -922,7 +920,7 @@ escapeChar (char *buf, UChar * res)
       }
     else
       {
-          memcpy (res, "\x20\x00", 2);
+          *res=0x20;
           return i + 1;
       }
 }
