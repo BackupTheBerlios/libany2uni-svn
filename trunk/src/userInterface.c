@@ -2,7 +2,7 @@
   This file is part of the libany2uni project, an universal
   text extractor in unicode utf-16
   Copyright (C) 2005  Gwendal Dufresne
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public
   License as published by the Free Software Foundation; either
@@ -76,8 +76,8 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     }
 
     break;
-  
-  case SCRIBUS : 
+
+  case SCRIBUS :
     sprintf(libpath, "%s/libany2uni/p_scribus.so", INSTALL_PATH);
     handle = dlopen(libpath, RTLD_LAZY);
     if(handle == NULL) {
@@ -226,7 +226,7 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
     fprintf(stderr, "%s : cannot initialize plugin\n", filename);
     return -2;
   }
-  
+
   desc->plugin_handle = handle;
 
   return OK;
@@ -245,12 +245,12 @@ int closeDocument(struct doc_descriptor *desc) {
     meta.name = meta.value = NULL;
     while (read_meta(desc, &meta) >=0) {
       if(meta.name != NULL) {
-	free(meta.name);
-	meta.name = NULL;
+    free(meta.name);
+    meta.name = NULL;
       }
       if(meta.value != NULL) {
-	free(meta.value);
-	meta.value = NULL;
+    free(meta.value);
+    meta.value = NULL;
       }
     }
 
@@ -273,7 +273,7 @@ int closeDocument(struct doc_descriptor *desc) {
 
 /* params : desc : the doc_descriptor of the document to read
  *          buf  : a buffer to receive the UTF-16 data
- * return : the length of text read
+ * return : the length of text read (in BYTES)
  */
 int read_content(struct doc_descriptor *desc, UChar *buf) {
   int (*p_read_content)(struct doc_descriptor *, UChar *);
@@ -330,15 +330,15 @@ int main(int argc, char *argv[]) {
   FILE *fd;
   int e, f, i;
   struct timeval t1, t2;
-  
-  
+
+
   if (argc != 2) {
     fprintf(stderr, "usage : ./test <doc_file>\n");
     exit(0);
   }
-/*  
+/*
   gettimeofday(&t1, NULL);
-  
+
   for (i = 0; i<20; i++) {
 */
   if (openDocument(argv[1], &d)) {

@@ -1,7 +1,8 @@
 /*
   This file is part of the libany2uni project, an universal
   text extractor in unicode utf-16
-  Copyright (C) 2005  Gwendal Dufresne
+  Copyright (C) 2005  Gwendal Dufresne, modified by Romuald Texier
+  $Id$
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public
@@ -207,11 +208,11 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
   isMarkup = 0;
   isMeta = 0;
   len = read (desc->fd, buf2, BUFSIZE);
-  while (!fini && len > 0 && l < size - 2)
+  while (!fini && len > 0 && 2*l < size - 2)
     {
 
       /* consuming buffer */
-      for (i = 0; l < size - 2 && i < len && !dangerousCut && !fini; i++)
+      for (i = 0; 2*l < size - 2 && i < len && !dangerousCut && !fini; i++)
         {
 
           /* end of buffer are possible points of failure
@@ -226,8 +227,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
 
           /* detecting end of javascript */
           if (isJavascript
-              && (!strncmp (buf2 + i, "</script>", 9)
-                  || !strncmp (buf2 + i, "</SCRIPT>", 9)))
+              && !strncasecmp (buf2 + i, "</script>", 9))
             {
               isJavascript = 0;
               i += 9;
@@ -235,11 +235,9 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
 
           /* detecting new paragraph */
           if (l > 0 && !isJavascript
-              && (!strncmp (buf2 + i, "<p", 2) || !strncmp (buf2 + i, "<P", 2)
-                  || !strncmp (buf2 + i, "<BR", 3)
-                  || !strncmp (buf2 + i, "<br", 3)
-                  || !strncmp (buf2 + i, "<DIV", 4)
-                  || !strncmp (buf2 + i, "<div", 4)))
+              && (!strncasecmp (buf2 + i, "<p", 2)
+                  || !strncasecmp (buf2 + i, "<br", 3)
+                  || !strncasecmp (buf2 + i, "<div", 4)))
             {
               fini = 1;
               i += 2;
@@ -256,14 +254,12 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
             {
 
               /* detecting begining of javascript */
-              if (!strncmp (buf2 + i, "<script", 7)
-                  || !strncmp (buf2 + i, "<SCRIPT", 7))
+              if (!strncasecmp (buf2 + i, "<script", 7))
                 {
                   isJavascript = 1;
 
                 }
-              else if (!strncmp (buf2 + i, "<title", 6) ||
-                       !strncmp (buf2 + i, "<TITLE", 6))
+              else if (!strncasecmp (buf2 + i, "<title", 6))
                 {
                   err = U_ZERO_ERROR;
                   /* finding last metadata of desc */
@@ -299,8 +295,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                   isMeta = 1;
 
                 }
-              else if (!strncmp (buf2 + i, "<meta", 5) ||
-                       !strncmp (buf2 + i, "<META", 5))
+              else if (!strncasecmp (buf2 + i, "<meta", 5))
                 {
                   i += 5;
                   if (i >= size - 9)
@@ -311,7 +306,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                               BUFSIZE - len + i) + len - i;
                       i = 0;
                     }
-                  for (; strncmp (buf2 + i, "name=\"", 6) && strncmp (buf2 + i, "NAME=\"", 6) &&
+                  for (; strncasecmp (buf2 + i, "name=\"", 6)  &&
                        strncmp (buf2 + i, "\x3E", 1); i++)
                     {
                       if (i >= size - 9)
@@ -348,15 +343,15 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                             {
                               memset (esc, '\x00', 6);
                               offset = escapeChar (desc, buf2 + i, esc);
-                              memcpy (name + j / 2, esc, 2 * u_strlen (esc));
-                              j += 2 * u_strlen (esc);
+                              memcpy (name + j, esc, 2 * u_strlen (esc));
+                              j += u_strlen (esc);
                               i += (offset - 1);
                             }
                           else
                             {
 
                               /* filling name buffer */
-                              dest = name + j / 2;
+                              dest = name + j;
                               src = buf2 + i;
                               err = U_ZERO_ERROR;
                               ucnv_toUnicode (desc->conv, &dest, name + 1024,
@@ -368,12 +363,12 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                                            "Unable to convert buffer\n");
                                   return ERR_ICU;
                                 }
-                              j += 2 * (dest - name - j / 2);
+                              j += (dest - name - j);
                             }
                         }
 
                       /* get metadata value */
-                      for (; strncmp (buf2 + i, "content=\"", 9) && strncmp (buf2 + i, "CONTENT=\"", 9) && strncmp (buf2 + i, "\x3E", 1); i++)
+                      for (; strncasecmp (buf2 + i, "content=\"", 9) && strncmp (buf2 + i, "\x3E", 1); i++)
                         {
                           if (i >= size - 9)
                             {
@@ -409,15 +404,15 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                             {
                               memset (esc, '\x00', 6);
                               offset = escapeChar (desc, buf2 + i, esc);
-                              memcpy (value + j / 2, esc, 2 * u_strlen (esc));
-                              j += 2 * u_strlen (esc);
+                              memcpy (value + j, esc, 2 * u_strlen (esc));
+                              j += u_strlen (esc);
                               i += (offset - 1);
                             }
                           else
                             {
 
                               /* filling value buffer */
-                              dest = value + j / 2;
+                              dest = value + j;
                               src = buf2 + i;
                               err = U_ZERO_ERROR;
                               ucnv_toUnicode (desc->conv, &dest, value + 1024,
@@ -429,7 +424,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                                            "Unable to convert buffer\n");
                                   return ERR_ICU;
                                 }
-                              j += 2 * (dest - value - j / 2);
+                              j += (dest - value - j);
                             }
                         }
 
@@ -514,15 +509,15 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                     {
                       memset (esc, '\x00', 6);
                       offset = escapeChar (desc, buf2 + i, esc);
-                      memcpy (value + j / 2, esc, 2 * u_strlen (esc));
-                      j += 2 * u_strlen (esc);
+                      memcpy (value + j, esc, 2 * u_strlen (esc));
+                      j += u_strlen (esc);
                       i += (offset - 1);
                     }
                   else
                     {
 
                       /* filling value buffer */
-                      dest = value + j / 2;
+                      dest = value + j;
                       src = buf2 + i;
                       err = U_ZERO_ERROR;
                       ucnv_toUnicode (desc->conv, &dest, value + 1024,
@@ -532,7 +527,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                           fprintf (stderr, "Unable to convert buffer\n");
                           return ERR_ICU;
                         }
-                      j += 2 * (dest - value - j / 2);
+                      j += (dest - value - j);
                     }
                 }
               meta->value = (UChar *) malloc (2 * (j + 1));
@@ -548,8 +543,8 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
             {
               if (!space_added && l > 0)
                 {
-                  memcpy (buf + l / 2, "\x20\x00", 2);
-                  l += 2;
+                  memcpy (buf + l, "\x20\x00", 2);
+                  l ++;
                   space_added = 1;
                 }
               isMarkup = 0;
@@ -559,7 +554,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
           if (!isJavascript && !isMarkup && strncmp (buf2 + i, "\x3e", 1))
             {
 
-              if (strncmp (buf2 + i, "\n", 1) && strncmp (buf2 + i, "\t", 1))
+              if (strncmp (buf2 + i, "\n", 1) && strncmp (buf2 + i, "\t", 1) && strncmp (buf2 + i, "\r", 1))
                 {
 
                   /* converting tokens */
@@ -570,8 +565,8 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                       offset = escapeChar (desc, buf2 + i, esc);
                       if (memcmp (esc, "\x20\x00", u_strlen (esc)))
                         {
-                          memcpy (buf + l / 2, esc, 2 * u_strlen (esc));
-                          l += 2 * u_strlen (esc);
+                          memcpy (buf + l, esc, 2 * u_strlen (esc));
+                          l += u_strlen (esc);
                           space_added = 0;
                         }
                       i += (offset - 1);
@@ -580,7 +575,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                     {
 
                       /* filling output buffer */
-                      dest = buf + l / 2;
+                      dest = buf + l;
                       src = buf2 + i;
                       err = U_ZERO_ERROR;
                       ucnv_toUnicode (desc->conv, &dest, buf + size / 2,
@@ -590,15 +585,15 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                           fprintf (stderr, "Unable to convert buffer\n");
                           return ERR_ICU;
                         }
-                      l += 2 * (dest - buf - l / 2);
+                      l += (dest - buf - l);
                       space_added = 0;
                     }
                 }
               else
                 {
                   /* replace tabs and eol by spaces */
-                  buf[l / 2] = "\x20\x00";
-                  l += 2;
+                  buf[l] = "\x20\x00";
+                  l++;
                 }
             }
         }
@@ -629,7 +624,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
   if (l > 0)
     {
       memcpy (buf + l, "\x00\x00", 2);
-      return l;
+      return 2*l;
     }
 
   if (len == 0)
@@ -637,7 +632,7 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
       return NO_MORE_DATA;
     }
 
-  return l;
+  return 2*l;
 }
 
 int
@@ -651,8 +646,8 @@ getEncoding (int fd, char *encoding)
 
   /* search for 'charset' in header */
   len = read (fd, buf, BUFSIZE);
-  while (len > 0 && !none && strncmp (buf + i, "charset=", 8)
-         && strncmp (buf + i, "CHARSET=", 8))
+  while (len > 0 && !none && strncasecmp (buf + i, "charset=", 8)
+         )
     {
       if (len - i < 8)
         {
@@ -662,7 +657,7 @@ getEncoding (int fd, char *encoding)
           i = 0;
           break;
         }
-      if (!strncmp (buf + i, "<body", 5) || !strncmp (buf + i, "<BODY", 5))
+      if (!strncasecmp (buf + i, "<body", 5))
         {
           none = 1;
         }
