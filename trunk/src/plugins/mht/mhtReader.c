@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <strings.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -916,7 +917,7 @@ escapeChar (char *buf, UChar * res)
     else if (!strncmp (token, "&#", 2))
       {
           res[0] = atoi (token + 2);
-          return 6;
+          return i+1;
       }
     else
       {

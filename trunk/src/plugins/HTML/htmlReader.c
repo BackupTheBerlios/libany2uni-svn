@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <strings.h>
 #include <string.h>
 
 #define BUFSIZE 2048
@@ -178,7 +179,7 @@ escapeChar (struct doc_descriptor *desc, char *buf, UChar * res)
   else if (!strncmp (token, "&#", 2))
     {
       res[0] = atoi (token + 2);
-      return 6;
+      return i + 1;
     }
   else
     {
@@ -569,31 +570,42 @@ getText (struct doc_descriptor *desc, UChar * buf, int size)
                           l += u_strlen (esc);
                           space_added = 0;
                         }
+                      else {
+                        if (!space_added){
+                            buf[l] = 0x20;
+                            space_added = 1;
+                            l++;
+                        }
+                      }
                       i += (offset - 1);
                     }
                   else
                     {
-
-                      /* filling output buffer */
-                      dest = buf + l;
-                      src = buf2 + i;
-                      err = U_ZERO_ERROR;
-                      ucnv_toUnicode (desc->conv, &dest, buf + size / 2,
-                                      &src, buf2 + i + 1, NULL, FALSE, &err);
-                      if (U_FAILURE (err))
-                        {
-                          fprintf (stderr, "Unable to convert buffer\n");
-                          return ERR_ICU;
-                        }
-                      l += (dest - buf - l);
-                      space_added = 0;
+                      if (buf2[i] != 0x20 || !space_added){
+                        /* filling output buffer */
+                        dest = buf + l;
+                        src = buf2 + i;
+                        err = U_ZERO_ERROR;
+                        ucnv_toUnicode (desc->conv, &dest, buf + size / 2,
+                                        &src, buf2 + i + 1, NULL, FALSE, &err);
+                        if (U_FAILURE (err))
+                            {
+                            fprintf (stderr, "Unable to convert buffer\n");
+                            return ERR_ICU;
+                            }
+                        l += (dest - buf - l);
+                        if (buf2[i] == 0x20) {space_added = 1;} else {space_added=0;}
+                      }
                     }
                 }
               else
                 {
                   /* replace tabs and eol by spaces */
-                  buf[l] = "\x20\x00";
-                  l++;
+                  if (!space_added){
+                    buf[l] = 0x20;
+                    space_added = 1;
+                    l++;
+                  }
                 }
             }
         }
