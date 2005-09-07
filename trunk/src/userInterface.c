@@ -52,6 +52,10 @@ int openDocument(char *filename, struct doc_descriptor *desc) {
   desc->pageCount = -1;
 
   desc->fd = open(filename, O_RDONLY);
+  if(desc->fd == -1) {
+    fprintf(stderr, "%s does not exist\n", filename);
+    return ERR_NO_SUCH_FILE;
+  }
   fstat(desc->fd, &st);
   desc->size = st.st_size;
   close(desc->fd);
