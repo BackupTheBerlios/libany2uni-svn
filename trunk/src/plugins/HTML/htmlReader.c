@@ -688,11 +688,11 @@ getEncoding (int fd, char *encoding)
       strncpy (encoding, buf + i, len);
       strncpy (encoding + len, "\0", 1);
 
-      /* default charset is US-ASCII */
+      /* default charset is latin1 */
     }
   else
     {
-      strncpy (encoding, "US-ASCII\0", 9);
+      strncpy (encoding, "ISO-8859-1\0", 11);
     }
 
   lseek (fd, 0, SEEK_SET);
