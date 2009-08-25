@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -Wall -ansi -DINSTALL_PATH="\"$(libdir)\"" -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
+CFLAGS= -fPIC -Wall -ansi -DINSTALL_PATH="\"$(libdir)\"" -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 LDFLAGS= -Wall -ansi
 EXEC= p_pdf.so
 SRC= $(wildcard *.c)
